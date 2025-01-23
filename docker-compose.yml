@@ -18,11 +18,8 @@ services:
       - "8123:8123"
       - "9000:9000"
     volumes:
-      - /mnt/10tb_hdd/uncleaned_data:/var/lib/clickhouse/user_files/uncleaned_data
-      - /mnt/10tb_hdd/config/:/etc/clickhouse-server/config.d
-      - /mnt/samsung_2tb/mixed_data:/var/lib/clickhouse/user_files/mixed_data
-      - /mnt/10tb_hdd/main_data:/var/lib/clickhouse
-      - ./shared_volume:/shared_volume
+      - /mnt/10tb_hdd/clustered_enamine_database:/var/lib/clickhouse/user_files/clustered_enamine_db
+      - ./shared_vole:/shared_volume
     networks:
       - chelombus-network
 
