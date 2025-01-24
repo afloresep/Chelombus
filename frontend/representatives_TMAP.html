@@ -555,22 +555,18 @@
   </head>
 
   <body>
-    
-    
-    
-    
-
+  
     <div id="overlay-structure-container" data-binding-id="overlayStructureContainer" class="">
-      <canvas id="overlay-structure" data-binding-id="overlayStructure" width="450" height="687">
+            <canvas id="overlay-structure" data-binding-id="overlayStructure" width="450" height="687">
+            </canvas>
+  </div>
 
-      </canvas></div>
-    </div>
-
-    <div id="tip" data-bind="tip">
-      <div id="tip-text" data-bind="tipText"></div>
-    </div>
-    <div id="selected" data-bind="selected">
-      <div id="selected-controls" data-bind="selectedControls">
+  <div id="tip" data-bind="tip">
+    <div id="tip-text" data-bind="tipText"></div>
+  </div>
+  <div id="selected" data-bind="selected">
+    <div id="selected-controls" data-bind="selectedControls">
+        <button id="copy-button">Copy</button>
         <a id="selected-toggle" data-bind="selectedToggle" href="#">
           <i class="fas fa-toggle-on"></i>
         </a>
@@ -615,7 +611,17 @@
     <div id="hover-indicator" data-bind="hoverIndicator"></div>
     <canvas id="lore"></canvas>
 
-    
+    <script>
+      document.getElementById("copy-button").addEventListener("click", function() {
+        const textToCopy = document.getElementById("selected-title").textContent;
+        navigator.clipboard.writeText(textToCopy).then(() => {
+          alert("Text copied to clipboard!");
+        }).catch(err => {
+          console.error("Error copying text: ", err);
+        });
+      });
+    </script>
+
     <script src="representatives_TMAP.js"></script>
     
     <script>
