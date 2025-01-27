@@ -161,11 +161,13 @@ class TmapGenerator:
         start = time.time()
         labels = []
         for i, row in self.dataframe.iterrows():
+            # Add link to generate the link between primary TMAP node and secondary TMAP 
             if self.categ_cols is not None:
                 label = '__'.join(str(row[col]) for col in self.categ_cols)
                 # Create a clickable link with cluster_id that points to the Flask endpoint
                 link = f'<a href="/generate/{label}" target="_blank">{label}</a>'
                 labels.append(row['smiles'] + '__' + link)
+            # If no categ_cols (node for secondary TMAP) then no link is needed
             else:
                 labels.append(row['smiles'])
         descriptors = self.tmap_constructor.mol_properties_from_df()
