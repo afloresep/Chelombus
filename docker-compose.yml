@@ -18,8 +18,13 @@ services:
       - "8123:8123"
       - "9000:9000"
     volumes:
+      # Volumes for creating the database
       - /mnt/10tb_hdd/clustered_enamine_database:/var/lib/clickhouse/user_files/clustered_enamine_db
-      - ./shared_vole:/shared_volume
+      - /mnt/10tb_hdd/clustered_enamine_database-copy:/var/lib/clickhouse/user_files/clustered_enamine_db-copy
+
+      # Persist Clickhouse database files
+      - /mnt/10tb_hdd/clickhouse_data:/var/lib/clickhouse
+
     networks:
       - chelombus-network
 
