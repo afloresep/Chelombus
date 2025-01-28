@@ -658,7 +658,8 @@
     </script>
 
     <script src="representatives_TMAP.js"></script>
-    
+   
+    <!-- Main JS code-->
     <script>
 
       //status on whether to show or not the background canvas
@@ -681,7 +682,7 @@
           this.currentPoint = null;
 
           this.lore = null;
-          this.clearColorHex = '#111111';
+          this.clearColorHex = '#FFFFFF';
           this.clearColor = null;
           this.view = 'front';
           this.antiAliasing = true;
@@ -777,6 +778,54 @@
             preserveDrawingBuffer: true
           });
         }
+
+    // Updated method to add markers at multiple coordinates
+  addMarkers(points) {
+      // Create a new point helper with the desired color and size
+      let markerHelper = new Lore.Helpers.PointHelper(this.lore, 'Markers', 'smoothCircle', { maxPointSize: 10 });
+
+      // Separate the coordinates into arrays for x, y, z
+      let xCoords = [];
+      let yCoords = [];
+      let zCoords = [];
+
+      // Populate the coordinate arrays
+      points.forEach(point => {
+          xCoords.push(point.x);
+          yCoords.push(point.y);
+          zCoords.push(point.z);
+      });
+
+      // Set the positions and colors (translucent red)
+      markerHelper.setXYZRGBS(
+          xCoords, yCoords, zCoords, 
+          Array(xCoords.length).fill(1.0), // Red channel
+          Array(yCoords.length).fill(0.0), // Green channel
+          Array(zCoords.length).fill(0.0), // Blue channel
+          Array(xCoords.length).fill(0.5)  // Transparency (alpha value: 0.5)
+      );
+
+      // Optionally, set the point size
+      markerHelper.setSize(25);
+
+      // Add to pointHelpers array for future reference or manipulation
+      this.pointHelpers.push(markerHelper);
+  }
+
+  // // Method to add a red marker at given coordinates
+  // addMarker(x, y, z) {
+  //   // Create a new point with the desired color and size
+  //   let markerHelper = new Lore.Helpers.PointHelper(this.lore, 'Marker', 'smoothCircle', { maxPointSize: 10 });
+
+  //   // Set the position and color (red)
+  //   markerHelper.setXYZRGBS([x], [y], [z], [0.0, 0.0, 0.0], [0.0, 0.0, 0.0],[0.0, 0.0, 0.0], [1.0, 1.0, 1.0]); // Red color
+
+  //   // Optionally, set the point size
+  //   markerHelper.setSize(25);
+
+  //   // Add to pointHelpers array for future reference or manipulation
+  //   this.pointHelpers.push(markerHelper);
+  // }
 
         initTreeHelpers() {
           this.treeMeta.forEach(t => {
@@ -959,7 +1008,6 @@
                 this.setTipContent();
                 this.sd = new SmiDrawer(this.sdMolOpts);
               } else {
-
                 document.getElementById("overlay-structure-container").style.visibility = "hidden";
                 this.setTipContent__();
 
@@ -1583,5 +1631,50 @@
 
       let f = new Faerun();
     </script>
-  </body>
+    <script>
+    document.getElementById("find-cluster-btn").addEventListener("click", async () => {
+      try {
+        // Get SMILES from JSME
+        const smiles = jsmeApplet.smiles();
+
+        // Send SMILES to the backend
+        const response = await fetch("http://127.0.0.1:8000/api/find-cluster", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ smiles }),
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          const points = data.coordinates; // Array of point objects
+
+          // Validate the received data
+          if (!Array.isArray(points)) {
+            throw new Error("Invalid data format: 'coordinates' should be an array.");
+          }
+
+          // Optionally, clear existing markers
+          // Uncomment the following lines if you want to remove existing markers before adding new ones
+          /*
+          f.pointHelpers.forEach(helper => helper.remove());
+          f.pointHelpers = [];
+          */
+
+          // Use Faerun's addMarkers method to plot all points at once
+          f.addMarkers(points); 
+
+          // Update the Lore scene after adding all markers
+          f.lore.render();
+        } else {
+          alert("Failed to find cluster. Please check the backend.");
+        }
+      } catch (error) {
+        console.error("Error while finding cluster:", error);
+      }
+    });
+
+</script>
+</body>
 </html>
