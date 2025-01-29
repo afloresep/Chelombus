@@ -22,3 +22,7 @@ dynamic_tmap/representativeeee_TMAP.html
 dynamic_tmap/representativeeee_TMAP.js
 dynamic_tmap/maps/cluster_69681_TMAP.js
 maps/
+dynamic_tmap/src/utils/js_to_csv.py
+dynamic_tmap/scripts/filter_clusters.py
+frontend/find_missing.py
+backend/cluster_names.txt
