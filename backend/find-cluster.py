@@ -48,11 +48,6 @@ def calculate_mqn_fp(smiles: str) -> np.array:
     except Exception as e:
         print(f"Error processing SMILES '{smiles}': {e}")
         return None
-import pandas as pd
-import numpy as np
-import joblib
-
-import re
 
 def get_coordinates_by_node_number(node_number):
     """
@@ -153,7 +148,7 @@ async def find_cluster(smiles: dict):
      points = []
 
      # Read neighbors.txt (one SMILES per line)
-     with open('neighbors.txt', 'r') as f:
+     with open('neighbor.txt', 'r') as f:
          for line in f:
              neighbor_smiles = line.strip()
              if not neighbor_smiles:
@@ -177,27 +172,26 @@ async def find_cluster(smiles: dict):
      
      return ResponseModel(coordinates=points)
 
-# @app.post("/api/find-cluster", response_model=ResponseModel)
-# async def find_cluster(smiles: dict):
-#     # Implement your logic to generate multiple (x, y, z) points based on the SMILES string
-#     # For demonstration, returning some dummy points
-#     points = [
-#         Coordinates(x=510.0, y=220.0, z=350.0),
-#         Coordinates(x=540.0, y=250.0, z=350.0),
-#     ]
-#     return ResponseModel(coordinates=points)
-
-
 if __name__ == "__main__":
-    #  parser = argparse.ArgumentParser(description="Find clusters for a given point.")
-    #  parser.add_argument("csv_file", help="Path to the CSV file containing cluster ranges")
+     parser = argparse.ArgumentParser(description="Find clusters for a given point.")
+     parser.add_argument("csv_file", help="Path to the CSV file containing cluster ranges")
    
-    #  args = parser.parse_args()
-    find_cluster()
-    #  list_clusters = []
-    #  with open('neighbors.txt', 'r') as f:
-    #      for neighbor in f:
-    #          neighbor = neighbor.strip()  # Remove any leading/trailing whitespace, such as newlines
-    #          neighbor_cluster = find_clusters(args.csv_file, smiles=neighbor, js_file='../frontend/representatives_TMAP.js')
-    #          list_clusters.append(str(neighbor_cluster))
+     args = parser.parse_args()
+     list_clusters = []
+     with open('neighbors.txt', 'r') as f:
+         for neighbor in f:
+             neighbor = neighbor.strip()  # Remove any leading/trailing whitespace, such as newlines
+             neighbor_cluster = find_clusters(args.csv_file, smiles=neighbor, js_file='../frontend/representatives_TMAP.js')
 
+             # If coordinate is found, append to our 'points' list
+             if neighbor_cluster:
+                 x, y, z = neighbor_cluster 
+                 list_clusters.append(Coordinates(x=x, y=y, z=z))
+             else:
+                 # If there's no match, you could choose to do nothing
+                 # or append a placeholder
+                 pass
+     
+     print(ResponseModel(coordinates=list_clusters))
+     
+    
