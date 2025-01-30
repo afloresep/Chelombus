@@ -1,7 +1,7 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
+  <title>Chelombus</title>
   <head>
-    <title>Chelombus</title>
     <script type="text/javascript" language="javascript" src="static/jsme/jsme.nocache.js"></script>
     <script>
       let jsmeApplet = null;
@@ -33,7 +33,7 @@
 
       /* Left-side panel for the molecular editor */
       .left-panel {
-        width: 300px;
+        width: 350px;
         position: absolute;
         background-color: #f9f9f9;
         border-right: 1px solid #ccc;
@@ -81,10 +81,14 @@
   <div class="layout">
     <!-- Left-side panel -->
     <div class="left-panel">
-      <h3>Searching Tool </h3>
+      <h3>Cluster finder</h3>
       <div id="jsme_container"></div>
-      <button type="button" onclick="alert(jsmeApplet.smiles())">Find Cluster</button>
-      <button type="button" id="find-cluster-btn">Locate Cluster</button>
+
+      <!-- File input for .txt files with the SMILES-->
+      <input type="file" id="find-cluster-input" accept=".txt" title="Upload one or several SMILES to find their cluster"/>
+
+      <!-- Button to trigger the search -->
+      <button type="button" id="find-smiles-btn" title="Find cluster based on the input on the SMILES drawer or the file uploaded">Find SMILES</button>
     </div>
 
     <!-- TMAP visualization -->
@@ -132,7 +136,7 @@
         position: absolute;
         z-index: 9999;
         pointer-events: none;
-        text-height: 1;
+        line-height: 1;
         opacity: 0.0;
         transition: opacity 0.5s ease-in;
         
@@ -150,7 +154,7 @@
         position: absolute;
         z-index: 9999;
         pointer-events: none;
-        text-height: 1;
+        line-height: 1;
         opacity: 0.0;
         transition: opacity 0.5s ease-in;
         
@@ -168,7 +172,7 @@
         position: absolute;
         z-index: 9999;
         pointer-events: none;
-        text-height: 1;
+        line-height: 1;
         transition: opacity 0.5s ease-in;
         
           padding-bottom: 20px;
@@ -294,9 +298,9 @@
         width: 100%;
       }
 
-      #legend .legend-section:not(:first-child) {
+      /* #legend .legend-section:not(:first-child) {
         
-      }
+      } */
 
       #legend h2 {
         font-size: 1em;
@@ -575,7 +579,7 @@
           z-index: 9998;
           width: 125px;
           opacity: 0.8;
-          background-filter: blur(10px);
+          background: blur(10px);
         }
 
         #selected img {
@@ -806,7 +810,7 @@
       );
 
       // Optionally, set the point size
-      markerHelper.setSize(25);
+      markerHelper.setSize(12);
 
       // Add to pointHelpers array for future reference or manipulation
       this.pointHelpers.push(markerHelper);
@@ -1632,48 +1636,84 @@
       let f = new Faerun();
     </script>
     <script>
-    document.getElementById("find-cluster-btn").addEventListener("click", async () => {
-      try {
-        // Get SMILES from JSME
-        const smiles = jsmeApplet.smiles();
+    // Find cluster from the input SMILES using the JSME Applet
+    document.getElementById("find-smiles-btn").addEventListener("click", async () => {
+      try { 
+        const fileInput = document.getElementById("find-cluster-input");
+        const fileList = fileInput.files || [];
+        let fileContent = null;
 
-        // Send SMILES to the backend
-        const response = await fetch("http://127.0.0.1:8000/api/find-cluster", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({ smiles }),
-        });
+        // Check if a file was uploaded
+        if (fileList.length > 0) {
+        const file = fileList[0];
+        fileContent = await file.text();
+        }
 
-        if (response.ok) {
-          const data = await response.json();
-          const points = data.coordinates; // Array of point objects
+        // 2. If no file, check JSME box for SMILES
+        const jsmeSmiles = jsmeApplet.smiles();
+        const hasJsmeSmiles = jsmeSmiles && jsmeSmiles.trim().length > 0;
 
-          // Validate the received data
-          if (!Array.isArray(points)) {
-            throw new Error("Invalid data format: 'coordinates' should be an array.");
+              // 3. Decide which route to call (or show an error)
+        if (fileContent) {
+          // Option A: Use the file content
+          const response = await fetch("http://127.0.0.1:8000/api/find-cluster-from-file", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({ file_content: fileContent }),
+          });
+
+          if (!response.ok) {
+            throw new Error("Backend request failed for file-based cluster finding.");
           }
 
-          // Optionally, clear existing markers
-          // Uncomment the following lines if you want to remove existing markers before adding new ones
-          /*
-          f.pointHelpers.forEach(helper => helper.remove());
-          f.pointHelpers = [];
-          */
+          const data = await response.json();
+          handleClustersResponse(data); // see function below
 
-          // Use Faerun's addMarkers method to plot all points at once
-          f.addMarkers(points); 
+        } else if (hasJsmeSmiles) {
+          // Option B: Use the SMILES from JSME
+          const response = await fetch("http://127.0.0.1:8000/api/find-cluster-from-jmse", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({ smiles: jsmeSmiles }),
+          });
 
-          // Update the Lore scene after adding all markers
-          f.lore.render();
+          if (!response.ok) {
+            throw new Error("Backend request failed for SMILES-based cluster finding.");
+          }
+
+          const data = await response.json();
+          handleClustersResponse(data);
         } else {
-          alert("Failed to find cluster. Please check the backend.");
+          // If neither file nor SMILES is present, show a message
+          alert("Please either upload a .txt file or draw a structure in the JSME box.");
         }
       } catch (error) {
         console.error("Error while finding cluster:", error);
+        alert("An error occurred while finding clusters. Check console for details.");
       }
     });
+
+    // Helper function to handle the cluster response and plot it on Faerun, etc.
+    function handleClustersResponse(data) {
+      const points = data.coordinates; // array of {x, y, z}
+
+      if (!Array.isArray(points)) {
+        alert("Invalid data format: 'coordinates' should be an array.");
+        return;
+      }
+
+      //Clear existing markers:
+      // f.pointHelpers.forEach(helper => helper.remove());
+      // f.pointHelpers = [];
+
+      // Add new markers and render
+      f.addMarkers(points);
+      f.lore.render();
+    }
 
 </script>
 </body>
