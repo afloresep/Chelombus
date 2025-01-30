@@ -14,7 +14,9 @@ import numpy.typing as npt
 
 # Define the fingerprint functions at the module level
 def calculate_mhfp_fp(smiles: str, permutations: int) -> np.array:
-    """Calculate MHFP fingerprint for a single SMILES string."""
+    """Calculate MHFP fingerprint for a single SMILES string.
+    :param smiles: SMILES string for the molecule
+    :return: np.array of fingerprint"""
     try:
         encoder = MHFPEncoder(permutations)
         return np.array(encoder.encode(smiles))
@@ -23,7 +25,10 @@ def calculate_mhfp_fp(smiles: str, permutations: int) -> np.array:
         return None
 
 def calculate_mqn_fp(smiles: str) -> np.array:
-    """Calculate MQN fingerprint for a single SMILES string."""
+    """Calculate MQN fingerprint for a single SMILES string.
+    :param smiles: SMILES string for the molecule
+    :return: np.array of fingerprint
+    """
     try:
         fingerprint = rdMolDescriptors.MQNs_(Chem.MolFromSmiles(smiles))
         return np.array(fingerprint)
@@ -32,7 +37,9 @@ def calculate_mqn_fp(smiles: str) -> np.array:
         return None
 
 def calculate_morgan_fp(smiles: str, radius: int, fp_size: int) -> np.array:
-    """Calculate Morgan fingerprint for a single SMILES string."""
+    """Calculate Morgan fingerprint for a single SMILES string.
+    :param smiles: SMILES string for the molecule
+    :return: np.array of fingerprint"""
     try:
         mol = Chem.MolFromSmiles(smiles)
         if mol is None:
@@ -47,7 +54,9 @@ def calculate_morgan_fp(smiles: str, radius: int, fp_size: int) -> np.array:
         return None
 
 def calculate_mapc_fp(smiles: str, radius: int, fp_size: int) -> np.array:
-    """Calculate MAP Chiral fingerprint for a single SMILES string."""
+    """Calculate MAP Chiral fingerprint for a single SMILES string.
+    :param smiles: SMILES string for the molecule
+    :return: np.array of fingerprint"""
     try:
         mol = Chem.MolFromSmiles(smiles)
         if mol is None:
