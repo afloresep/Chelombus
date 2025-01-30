@@ -109,7 +109,7 @@ def find_neighbors(
         raise ValueError("Invalid query SMILES provided.")
 
     # Decide how many CPU processes to use (75% of available CPU cores)
-    processes = int(max(1, 0.99 * cpu_count()))
+    processes = cpu_count()
     print(f"Using {processes} worker processes out of {cpu_count()} total cores.")
 
     # This heap will store our best (lowest-distance) molecules.
@@ -123,11 +123,13 @@ def find_neighbors(
     # Number of chunks
     total_chunks = math.ceil(total_rows / chunk_size)
 
-    with Pool(processes=processes) as pool:
-        # Iterate over the dataset in chunks
-        for chunk_idx in tqdm(range(total_chunks), desc="Chunks processed"):
+    with Pool(processes=processes) as pool, tqdm(
+        desc="Molecules processed",
+        total=total_rows,
+        unit="mol"
+    ) as pbar:
+        for chunk_idx in range(total_chunks):
             offset = chunk_idx * chunk_size
-            # Query for the next chunk
             query = (
                 f"SELECT smiles FROM {table_name} "
                 f"LIMIT {chunk_size} OFFSET {offset}"
@@ -135,7 +137,7 @@ def find_neighbors(
             query_result = client.query(query)
             chunk_data = query_result.result_rows
 
-            # If no rows returned, break early (defensive check)
+            # If no rows returned, break early
             if not chunk_data:
                 break
 
@@ -145,13 +147,16 @@ def find_neighbors(
             # Compute Tanimoto distances in parallel
             distances = pool.map(func, smiles_list)
 
+            # Update progress bar by number of molecules processed in this chunk
+            pbar.update(len(distances))
+
             # Update the max-heap with new results
             for smi, dist in distances:
                 # Skip invalid molecules
                 if dist is None:
                     continue
-                
-                # If we haven't reached top_n size, just push
+
+                # If we haven't reached top_n, just push
                 if len(neighbors_heap) < top_n:
                     heapq.heappush(neighbors_heap, (-dist, smi))
                 else:
@@ -160,6 +165,7 @@ def find_neighbors(
                     if dist < -neighbors_heap[0][0]:
                         # Pop the largest distance
                         heapq.heapreplace(neighbors_heap, (-dist, smi))
+            del chunk_data, smiles_list, distances
 
     # Convert final heap to a sorted list (ascending by distance)
     final_results = []
@@ -182,8 +188,8 @@ def main():
     nearest_neighbors_df = find_neighbors(
         query_smiles=query_molecule,
         table_name="clustered_enamine",  # Adjust if your table name differs
-        top_n=10_000,
-        chunk_size=250_000_000,  # Adjust chunk size as per memory constraints
+        top_n=120_000,
+        chunk_size=30_000_000,  # Adjust chunk size as per memory constraints
         host="localhost",
         port=8123
     )
