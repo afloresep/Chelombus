@@ -654,7 +654,6 @@
       document.getElementById("copy-button").addEventListener("click", function() {
         const textToCopy = document.getElementById("selected-title").textContent;
         navigator.clipboard.writeText(textToCopy).then(() => {
-          alert("SMILES copied to clipboard!");
         }).catch(err => {
           console.error("Error copying text: ", err);
         });
