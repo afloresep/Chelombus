@@ -801,17 +801,15 @@
       });
 
       // Set the positions and colors (translucent red)
-      markerHelper.setXYZRGBS(
-          xCoords, yCoords, zCoords, 
-          Array(xCoords.length).fill(1.0), // Red channel
+      markerHelper.setXYZRGBS( xCoords, yCoords, zCoords,
+          Array(xCoords.length).fill(10.0), // Red channel
           Array(yCoords.length).fill(0.0), // Green channel
-          Array(zCoords.length).fill(0.0), // Blue channel
-          Array(xCoords.length).fill(0.5)  // Transparency (alpha value: 0.5)
+          Array(zCoords.length).fill(0.0), // Blue channel,
       );
 
       // Optionally, set the point size
-      markerHelper.setSize(12);
-
+      markerHelper.setSize(25);
+      markerHelper.setFog([10.0, 0.0, 0.0, 0.5], 4);
       // Add to pointHelpers array for future reference or manipulation
       this.pointHelpers.push(markerHelper);
   }
