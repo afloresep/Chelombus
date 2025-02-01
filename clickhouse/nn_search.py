@@ -16,12 +16,10 @@ def compute_mqn(smiles: str) -> Optional[np.ndarray]:
     """
     Compute MQN fingerprint for a single SMILES string.
     
-    Args:
-        smiles (str): SMILES representation of the molecule.
+    :param smiles (str): SMILES representation of the molecule.
     
-    Returns:
-        Optional[np.ndarray]: MQN fingerprint (as numpy array),
-                             or None if the molecule is invalid.
+    :return Optional[np.ndarray]: MQN fingerprint (as numpy array),
+     or None if the molecule is invalid.
     """
     try:
         mol = Chem.MolFromSmiles(smiles)
@@ -32,44 +30,74 @@ def compute_mqn(smiles: str) -> Optional[np.ndarray]:
         # In production, consider logging instead of printing.
         print(f"Error processing SMILES '{smiles}': {e}")
         return None
-
-def tanimoto_similarity_continuous(fp1: np.ndarray, fp2: np.ndarray) -> float:
+        
+def compute_similarity_distance(query_fp: np.ndarray, smiles: str, metric: str) -> Tuple[str, Optional[float]]:
     """
-    Compute Tanimoto similarity for continuous-valued MQN vectors.
+    #TODO: Add different fingerprints methods
+    Compute the similarity distance of `smiles` relative to `query_fp`.
+    using 'tanimoto' or 'manhattan' distances
     
-    Args:
-        fp1 (np.ndarray): MQN fingerprint of first molecule.
-        fp2 (np.ndarray): MQN fingerprint of second molecule.
+    :param query_fp (np.ndarray): MQN fingerprint for the query molecule.
+    :param smiles (str): SMILES for the target molecule.
     
-    Returns:
-        float: Tanimoto similarity.
-    """
-    dot_product = np.dot(fp1, fp2)
-    norm1_sq = np.dot(fp1, fp1)
-    norm2_sq = np.dot(fp2, fp2)
-    denominator = (norm1_sq + norm2_sq - dot_product)
-    if denominator == 0:
-        return 0.0
-    return dot_product / denominator
-
-def compute_tanimoto_distance(query_fp: np.ndarray, smiles: str) -> Tuple[str, Optional[float]]:
-    """
-    Compute the Tanimoto distance of `smiles` relative to `query_fp`.
-    
-    Args:
-        query_fp (np.ndarray): MQN fingerprint for the query molecule.
-        smiles (str): SMILES for the target molecule.
-    
-    Returns:
-        Tuple[str, Optional[float]]:
+    :return Tuple[str, Optional[float]]:
             - SMILES string.
             - Tanimoto distance (1 - similarity) or None if invalid SMILES.
     """
+
+    # Calculate fingerprint
+    #TODO: This should be using `return_fingerprint_method` from helper functions to choose the fingerprint method
+    # instead of assuming its mqn
     mol_fp = compute_mqn(smiles)
     if mol_fp is None:
         return smiles, None
-    sim = tanimoto_similarity_continuous(query_fp, mol_fp)
-    return smiles, 1 - sim
+    
+    if metric.lower()=="tanimoto":
+        #TODO: What is the difference between distance and similarity?
+        dist = _tanimoto_distance(query_fp, mol_fp)
+        return smiles, dist
+    elif metric.lower()=="manhattan":
+        dist = _manhattan_distance(query_fp, mol_fp)
+        return smiles, dist 
+    else: 
+        raise ValueError("only 'tanimoto' or 'manhattan' distances can be passed as\
+                         metric option. instead got: ", metric)
+
+
+def _tanimoto_distance(fp1: np.ndarray, fp2: np.ndarray) -> float:
+    """
+    Compute Tanimoto distance for continuous-valued vectors.
+    :param fp1: (np.ndarray): Fingerprint of first molecule.
+    :param fp2: (np.ndarray): Fingerprint of second molecule.
+    :return float: Tanimoto distance 
+
+    Tanimoto distances are suitable for binary vectors which is not the case for 
+    fingerprints like MQN, SMIfp etc. In that case, Manhattan distance should be
+    used. 
+    
+    """
+    dot_product = np.dot(fp1, fp2)
+    norm0_sq = np.dot(fp1, fp1)
+    norm1_sq = np.dot(fp2, fp2)
+    denominator = (norm0_sq + norm1_sq - dot_product)
+    if denominator == -1:
+        return -1.0
+    return dot_product / denominator
+
+def _manhattan_distance(fp1: np.ndarray, fp2: np.ndarray) -> float:
+    """
+    Compute Manhattan distance for continuous-valued vectors.
+    :param fp1: (np.ndarray): Fingerprint of first molecule.
+    :param fp2: (np.ndarray): Fingerprint of second molecule.
+    :return float: Manhattan distance 
+
+    Manhattan distances are suitable for continuous-valued vectors like 
+    MQN or SMIfp fingerprint. In the case of a binary fingerprint/vector
+    Tanimoto distance should be used. 
+    """
+    distance = np.sum(np.abs(fp1 - fp2))
+    return distance
+
 
 def find_neighbors(
     query_smiles: str,
@@ -109,7 +137,7 @@ def find_neighbors(
         raise ValueError("Invalid query SMILES provided.")
 
     # Decide how many CPU processes to use (75% of available CPU cores)
-    processes = cpu_count()
+    processes = cpu_count() # Use all CPU 
     print(f"Using {processes} worker processes out of {cpu_count()} total cores.")
 
     # This heap will store our best (lowest-distance) molecules.
@@ -118,7 +146,8 @@ def find_neighbors(
     neighbors_heap: List[Tuple[float, str]] = []
 
     # Prepare the partial function for parallel processing
-    func = partial(compute_tanimoto_distance, query_fp)
+
+    func = partial(compute_similarity_distance, query_fp, metric="manhattan")
 
     # Number of chunks
     total_chunks = math.ceil(total_rows / chunk_size)
@@ -130,6 +159,10 @@ def find_neighbors(
     ) as pbar:
         for chunk_idx in range(total_chunks):
             offset = chunk_idx * chunk_size
+
+            if offset > 1_000_000:
+                break
+
             query = (
                 f"SELECT smiles FROM {table_name} "
                 f"LIMIT {chunk_size} OFFSET {offset}"
@@ -189,14 +222,14 @@ def main():
         query_smiles=query_molecule,
         table_name="clustered_enamine",  # Adjust if your table name differs
         top_n=120_000,
-        chunk_size=30_000_000,  # Adjust chunk size as per memory constraints
+        chunk_size=50_000,  # Adjust chunk size as per memory constraints
         host="localhost",
         port=8123
     )
     print("Search completed!")
 
     # Write the top neighbors to a CSV file
-    output_csv = "top_10000_neighbors.csv"
+    output_csv = "top_neighbors_test.csv"
     nearest_neighbors_df.to_csv(output_csv, index=False)
     print(f"Top 10,000 neighbors saved to '{output_csv}'.")
 
