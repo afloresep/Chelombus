@@ -1,30 +1,129 @@
-from fastapi import FastAPI, Request
+import os
+from fastapi import FastAPI
 from typing import List, Union
 from pydantic import BaseModel # To serialize the data into JSON for API responses
 from fastapi.middleware.cors import CORSMiddleware
-import re
 import pandas as pd
 import joblib
-import argparse
-from mhfp.encoder import MHFPEncoder
-from rdkit.Chem import AllChem
 from rdkit.Chem import rdMolDescriptors
-import numpy as np
-#TODO: Fix import
-# from chelombus.dynamic_tmap.src.fingerprint_calculator import calculate_mqn_fp
 import tmap as tm
 from rdkit import Chem
+import numpy as np
+from rdkit.Chem import Draw
+from openpyxl import Workbook
+from openpyxl.drawing.image import Image
+from openpyxl import Workbook
+from openpyxl.drawing.image import Image
 
 app = FastAPI()
 
 # Allow requests from the local frontend
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  #TODO: Suitable for develop, restricted in production
-    allow_credentials=True,
+    allow_origins=["http://127.0.0.1:5501", # local setup
+                   "http://localhost", # Docker container 
+                   "http://localhost:80",
+                   "http://localhost:3000" # Port where the frontend is running (docker)
+                   # in production should be something like
+                   # "https://chelombus.com",
+                   ],  
+    allow_credentials=True, # ALlows cookies/auth headers
     allow_methods=["*"],
-    allow_headers=["*"],
+    allow_headers=["*"], 
 )
+
+
+def export_smiles_to_excel(smiles_list: list,
+                           output_excel: str="my_molecules.xlsx", 
+                           image: bool=False):
+    """
+    Generates an Excel file with columns:
+    SMILES_2D (Opt) |SMILES | Coordinate | Cluster_ID | TMAP_Link
+
+    :param smiles_list: List of SMILES strings
+    :param output_excel: Path to the output Excel file name
+
+    The excel is a good way of going around the problem of plotting multiple points in the same map
+    where several points can be mapped to the same cluster -meaning we lose the sense of how many of 
+    our molecules are actually in the same cluster and how many are not. If multiple queries fall into 
+    the same cluster then they will only appear as one point. I also tested changing the color based on 
+    number of queried molecules per cluster but still we're missing which molecules are in which clusters
+    
+    This script contains also a 2D representation of the molecules, but I found that takes more time to 
+    compute and you have to save and delete the images. This option can be done when `image=True`.
+    """
+    # Create a new workbook and select the active worksheet
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "SMILES_Clusters"
+
+    # Headers, Column 1 contain images if image=True; if False, column is empty
+    ws.cell(row=1, column=1, value="SMILES 2D structure")
+    ws.cell(row=1, column=2, value="SMILES")
+    ws.cell(row=1, column=3, value="Coordinate (x,y,z)")
+    ws.cell(row=1, column=4, value="Cluster_ID")
+    ws.cell(row=1, column=5, value="TMAP_Link")
+
+    # Adjust column widths (optional, to ensure better readability)
+    ws.column_dimensions['A'].width = 20
+    ws.column_dimensions['B'].width = 40
+    ws.column_dimensions['C'].width = 25
+    ws.column_dimensions['D'].width = 12
+    ws.column_dimensions['E'].width = 50
+
+    row_idx = 2  # Start populating data at row 2
+
+    for smi in smiles_list:
+        smi = smi.strip()
+        if not smi:
+            continue
+
+        # 1) Find the cluster & coordinates from your existing function
+        coordinate, cluster_id = find_cluster_from_smiles("data/cluster_ranges.csv", smi)
+        if coordinate is None or cluster_id is None:
+            # If there's no match, you might either skip or fill in "N/A"
+            continue
+
+        x, y, z = coordinate
+
+        # 2) If image=True, create & insert 2D structure
+        if image:
+            mol = Chem.MolFromSmiles(smi)
+            if mol:
+                image_path = f"mol_{row_idx}.png"
+                Draw.MolToFile(mol, image_path, size=(300, 300))
+                
+                # Insert the image into Excel
+                img = Image(image_path)
+                cell_location_for_image = f"A{row_idx}"  # Column A, row row_idx
+                ws.add_image(img, cell_location_for_image)
+                
+                # Remove/cleanup the temporary PNG
+                os.remove(image_path)
+
+        # 3) Fill in the other columns
+        # SMILES
+        ws.cell(row=row_idx, column=2, value=smi)
+        # Coordinates
+        ws.cell(row=row_idx, column=3, value=f"({x:.2f}, {y:.2f}, {z:.2f})")
+        # Cluster ID
+        ws.cell(row=row_idx, column=4, value=cluster_id)
+        # TMAP link
+        tmap_link = f"http://localhost/generated_tmaps/cluster_{cluster_id}_TMAP.html"
+        cell_for_link = ws.cell(row=row_idx, column=5, value="TMAP Link")
+        cell_for_link.hyperlink = tmap_link
+        cell_for_link.style = "Hyperlink"
+
+        row_idx += 1
+
+        # Save the workbook
+        wb.save(output_excel)
+        print(f"Excel file saved: {output_excel}")
+
+
+        # Save the workbook
+        wb.save(output_excel)
+        print(f"Excel file saved: {output_excel}")
 
 def calculate_mqn_fp(smiles: str) -> np.array:
     """Calculate MQN fingerprint for a single SMILES string.
@@ -37,6 +136,7 @@ def calculate_mqn_fp(smiles: str) -> np.array:
     except Exception as e:
         print(f"Error processing SMILES '{smiles}': {e}")
         return None
+       
 # Base Model for Coordinates 
 class Coordinates(BaseModel):
     x: float
@@ -64,7 +164,7 @@ def _get_coordinates_by_node_number(node_number) -> tuple:
     A tuple (x, y, z) if found, or None if not found.
     """
     # Load the CSV file
-    cluster_coordinates_df= pd.read_csv('database_cluster_coordinates.csv')
+    cluster_coordinates_df= pd.read_csv('data/database_cluster_coordinates.csv')
     
     # Construct the target cluster name
     target_name = f"cluster_{node_number}_TMAP.html"
@@ -84,7 +184,7 @@ def _get_coordinates_by_node_number(node_number) -> tuple:
 
 def find_cluster_from_smiles(csv_file: str, smiles: str):
     """
-    Returns the (x, y, z) coordinate for the first matching cluster ID
+    Returns the (x, y, z) coordinate for the first matching cluster ID and the cluster_id
     found in `csv_file` for the input SMILES.
     :param csv_file: CSV file that includes the PCA ranges for each cluster. We find the cluster based on this.
     :param smiles: smiles string to find its cluster
@@ -99,7 +199,7 @@ def find_cluster_from_smiles(csv_file: str, smiles: str):
     cluster_ranges_dataframe = pd.read_csv(csv_file)
 
     # 2) Load your trained PCA model
-    pca = joblib.load("ipca_model.joblib")
+    pca = joblib.load("data/ipca_model.joblib")
 
     # 3) Compute PCA coordinates
     fingerprint = calculate_mqn_fp(smiles=smiles).reshape(1, -1)
@@ -116,15 +216,15 @@ def find_cluster_from_smiles(csv_file: str, smiles: str):
     if matching_clusters.empty:
         return None
 
-    node_numbers = matching_clusters['cluster_id'].tolist()
+    cluster_id = matching_clusters['cluster_id'].tolist()
 
     # Just use the first matched node_number
-    node_number = node_numbers[0]
+    cluster_id= cluster_id[0]
 
-    coordinate = _get_coordinates_by_node_number(node_number)
+    coordinate = _get_coordinates_by_node_number(cluster_id)
     # coordinate is either (x, y, z) or None
     
-    return coordinate
+    return coordinate, cluster_id
 
 @app.post("/api/find-cluster-from-jmse", response_model=ResponseModel)
 async def find_cluster_from_jmse(smiles: dict) -> ResponseModel:
@@ -136,8 +236,8 @@ async def find_cluster_from_jmse(smiles: dict) -> ResponseModel:
     string from the JMSE box
     """
     point = []
-    smiles_coordinate = find_cluster_from_smiles(
-        csv_file="cluster_ranges.csv", 
+    smiles_coordinate, cluster_id = find_cluster_from_smiles(
+        csv_file="data/cluster_ranges.csv", 
         smiles=smiles['smiles'], 
     )
 
@@ -166,8 +266,8 @@ async def find_cluster_from_file(request: dict) -> ResponseModel:
             continue  # Skip empty lines
 
         # find_cluster_from_smiles will return either (x, y, z) or None
-        smiles_coordinate = find_cluster_from_smiles(
-            csv_file="cluster_ranges.csv", 
+        smiles_coordinate, cluster_id = find_cluster_from_smiles(
+            csv_file="data/cluster_ranges.csv", 
             smiles=neighbor_smiles,
         )
 
@@ -178,5 +278,6 @@ async def find_cluster_from_file(request: dict) -> ResponseModel:
         else:
             # If there's no match, you could choose to do nothing
             return ResponseModel(coordinates=None)
-     
+    # Save file with results 
+    export_smiles_to_excel(smiles_list=smiles_list, output_excel="cluster_search.xlsx")
     return ResponseModel(coordinates=points)
