@@ -28,6 +28,12 @@ services:
     networks:
       - chelombus-network
 
+  backend:
+    build: ./backend
+    container_name: backend
+    ports:
+      - "8000:8000"
+    
   dynamic-tmap:
     user: root
     build: ./dynamic_tmap
