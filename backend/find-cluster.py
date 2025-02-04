@@ -1,10 +1,13 @@
 import os
 from fastapi import FastAPI
 from typing import List, Union
+from joblib import Parallel, delayed
 from pydantic import BaseModel # To serialize the data into JSON for API responses
 from fastapi.middleware.cors import CORSMiddleware
 import pandas as pd
 import joblib
+from rtree import index
+import rtree
 from rdkit.Chem import rdMolDescriptors
 import tmap as tm
 from rdkit import Chem
@@ -31,7 +34,6 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"], 
 )
-
 
 def export_smiles_to_excel(smiles_list: list,
                            output_excel: str="my_molecules.xlsx", 
@@ -72,14 +74,18 @@ def export_smiles_to_excel(smiles_list: list,
     ws.column_dimensions['E'].width = 50
 
     row_idx = 2  # Start populating data at row 2
+    i = 0
+    df = pd.read_csv("/data/cluster_ranges.csv")
+    pca_model = joblib.load("data/ipca_model.joblib")
 
+    fps = mqn_parallel(smiles_list=smiles_list) 
     for smi in smiles_list:
         smi = smi.strip()
         if not smi:
             continue
-
+        
         # 1) Find the cluster & coordinates from your existing function
-        coordinate, cluster_id = find_cluster_from_smiles("data/cluster_ranges.csv", smi)
+        coordinate, cluster_id = find_cluster_from_smiles(pca_model=pca_model, cluster_ranges_dataframe=df, smiles=smi)
         if coordinate is None or cluster_id is None:
             # If there's no match, you might either skip or fill in "N/A"
             continue
@@ -115,15 +121,12 @@ def export_smiles_to_excel(smiles_list: list,
         cell_for_link.style = "Hyperlink"
 
         row_idx += 1
+        i += 1
+        print(f"\r Molecules done: {i}/{len(smiles_list)}", flush=True, end="")
 
-        # Save the workbook
-        wb.save(output_excel)
-        print(f"Excel file saved: {output_excel}")
-
-
-        # Save the workbook
-        wb.save(output_excel)
-        print(f"Excel file saved: {output_excel}")
+    # Save the workbook
+    wb.save(output_excel)
+    print(f"Excel file saved: {output_excel}")
 
 def calculate_mqn_fp(smiles: str) -> np.array:
     """Calculate MQN fingerprint for a single SMILES string.
@@ -136,7 +139,20 @@ def calculate_mqn_fp(smiles: str) -> np.array:
     except Exception as e:
         print(f"Error processing SMILES '{smiles}': {e}")
         return None
-       
+    
+def mqn_parallel(smiles_list: list) -> list:
+    """
+    Calculate MQN fingerprints for a list of SMILES strings in parallel.
+    
+    :param smiles_list: List of SMILES strings.
+    :return: List of numpy arrays (fingerprints), one for each SMILES.
+    """
+    fingerprints = Parallel(n_jobs=-1)(
+        delayed(calculate_mqn_fp)(smiles) for smiles in smiles_list
+    )
+    return fingerprints
+
+
 # Base Model for Coordinates 
 class Coordinates(BaseModel):
     x: float
@@ -182,7 +198,7 @@ def _get_coordinates_by_node_number(node_number) -> tuple:
         return None  # Return None if no matching row is found
     
 
-def find_cluster_from_smiles(csv_file: str, smiles: str):
+def find_cluster_from_smiles(pca_model, cluster_ranges_df: pd.DataFrame, smiles: str):
     """
     Returns the (x, y, z) coordinate for the first matching cluster ID and the cluster_id
     found in `csv_file` for the input SMILES.
@@ -196,7 +212,6 @@ def find_cluster_from_smiles(csv_file: str, smiles: str):
     as this can take a while we load it from a csv file with that data
     """
     # 1) Load the CSV file
-    cluster_ranges_dataframe = pd.read_csv(csv_file)
 
     # 2) Load your trained PCA model
     pca = joblib.load("data/ipca_model.joblib")
@@ -206,10 +221,10 @@ def find_cluster_from_smiles(csv_file: str, smiles: str):
     pca_coordinates = pca.transform(fingerprint).reshape(3, 1)
 
     # 4) Filter dataframe
-    matching_clusters = cluster_ranges_dataframe[
-        (cluster_ranges_dataframe['min_PCA_1'] <= np.float64(pca_coordinates[0])) & (cluster_ranges_dataframe['max_PCA_1'] >= np.float64(pca_coordinates[0])) &
-        (cluster_ranges_dataframe['min_PCA_2'] <= np.float64(pca_coordinates[1])) & (cluster_ranges_dataframe['max_PCA_2'] >= np.float64(pca_coordinates[1])) &
-        (cluster_ranges_dataframe['min_PCA_3'] <= np.float64(pca_coordinates[2])) & (cluster_ranges_dataframe['max_PCA_3'] >= np.float64(pca_coordinates[2]))
+    matching_clusters = cluster_ranges_df[
+        (cluster_ranges_df['min_PCA_1'] <= np.float64(pca_coordinates[0])) & (cluster_ranges_df['max_PCA_1'] >= np.float64(pca_coordinates[0])) &
+        (cluster_ranges_df['min_PCA_2'] <= np.float64(pca_coordinates[1])) & (cluster_ranges_df['max_PCA_2'] >= np.float64(pca_coordinates[1])) &
+        (cluster_ranges_df['min_PCA_3'] <= np.float64(pca_coordinates[2])) & (cluster_ranges_df['max_PCA_3'] >= np.float64(pca_coordinates[2]))
     ]
 
     # 5) Get the list of matching cluster IDs (node_number)
