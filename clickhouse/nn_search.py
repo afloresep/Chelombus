@@ -1,3 +1,4 @@
+import joblib
 import math
 import heapq
 import numpy as np
@@ -104,6 +105,7 @@ def find_neighbors(
     chunk_size: int = 2_000_000,
     host: str = "localhost",
     port: int = 8123, 
+    ipca_model = None,
 ) -> pd.DataFrame:
     """
     Compute Tanimoto distances for a query molecule across a large table.
@@ -148,58 +150,116 @@ def find_neighbors(
 
     # Number of chunks
     total_chunks = math.ceil(total_rows / chunk_size)
+    import re
+    if metric=="euclidian":
+        with tqdm(desc="Molecules processed", total=total_chunks, unit="chunks") as pbar:
+                ipca = joblib.load(ipca_model)
+                ref = compute_mqn(query_smiles) 
+                ref_3d = ipca.transform(ref.reshape(1, -1))
+                neighbors_heap: List[Tuple[float, str]] = []
 
-    with Pool(processes=processes) as pool, tqdm(
-        desc="Molecules processed",
-        total=total_rows,
-        unit="mol"
-    ) as pbar:
-        for chunk_idx in range(total_rows):
-            offset = chunk_idx *chunk_size 
-            query = (
-                f"SELECT smiles, cluster_id FROM {table_name} "
-                f"LIMIT {chunk_size} OFFSET {offset}"
-            )
-            # This method of selecting the query is much slower than do it based on rows
-            # However, one can do it if we only need to search for neighbors in certain space of the 
-            # map
-            # start_cluster = 98040 + chunk_idx*2
-            # end_cluster = start_cluster + 2
-            # query = (
-            #     f"SELECT smiles, cluster_id FROM {table_name} "
-            #     f"WHERE cluster_id >= '{start_cluster}' AND cluster_id < '{end_cluster}'"
-            # )
-            # query = ( f"SELECT smiles, cluster_id FROM {table_name} WHERE cluster_id >='{start_cluster}' AND cluster_id < '{end_cluster}'")
-            query_result = client.query(query)
-            chunk_data = query_result.result_rows
-            # If no rows returned, break early
-            if not chunk_data:
-                break
+                # Extract numbers using regex
+                ref_3d= re.findall(r"[-+]?\d*\.\d+|\d+", str(ref_3d))
+                
+                for chunk_idx in range(total_chunks):
+                    offset = chunk_idx * chunk_size
+                    query = f"SELECT * FROM {table_name} LIMIT {chunk_size} OFFSET {offset}"
+                    query_result = client.query(query)
+                    
+                    # Build a DataFrame from the query result
+                    columns = query_result.column_names
+                    df = pd.DataFrame(zip(*query_result.result_columns), columns=columns)
 
-            # Convert result to a list of SMILES
-            smiles_list = [row[0] for row in chunk_data]
-            cluster_ids = [row[1] for row in chunk_data]
+                    # Compute the Euclidean distance using the PCA coordinates.
+                    # (Adjust the constants as needed for your application.)
+                    df['distance'] = np.sqrt(
+                        (df['PCA_1'] - np.float64(ref_3d[0]) )**2 +
+                        (df['PCA_2'] - np.float64(ref_3d[1]) )**2 +
+                        (df['PCA_3'] - np.float64(ref_3d[2]) )**2
+                    )
 
-            # Compute distances in parallel
-            distances = pool.map(func, smiles_list)
-            # Update progress bar by number of molecules processed in this chunk
+                    # Iterate over each molecule in the chunk and update the heap.
+                    # Using itertuples() is an efficient way to loop over DataFrame rows.
+                    for row in df.itertuples(index=False):
+                        dist = row.distance
+                        smiles = row.smiles        # adjust if your column name differs
+                        cluster_id = row.cluster_id  # adjust if your column name differs
 
-            pbar.update(len(distances))
+                        # If the heap is not full yet, simply add the new molecule.
+                        if len(neighbors_heap) < top_n:
+                            heapq.heappush(neighbors_heap, (-dist, smiles, cluster_id))
+                        else:
+                            # The heap is full. Check if the current molecule is closer
+                            # than the farthest one currently in the heap.
+                            # neighbors_heap[0] is the entry with the largest distance (most negative value is smallest in heap order)
+                            if -neighbors_heap[0][0] > dist:
+                                heapq.heapreplace(neighbors_heap, (-dist, smiles, cluster_id))
+                    
+                    pbar.update(1)
 
-            # Update the max-heap with new results
-            for ((smi, dist), cid) in zip(distances, cluster_ids):
-                if dist is None:
-                    continue
-                # Always push negative distance (to simulate a max-heap)
-                neg_dist = -dist
-                if len(neighbors_heap) < top_n:
-                    heapq.heappush(neighbors_heap, (neg_dist, smi, cid))
-                else:
-                    # Compare with the largest (worst) distance in the heap.
-                    # The largest distance is -neighbors_heap[0][0].
-                    if dist < -neighbors_heap[0][0]:
-                        heapq.heapreplace(neighbors_heap, (neg_dist, smi, cid))
-            del chunk_data, smiles_list, distances, cluster_ids
+        # Extract the heap into a sorted list (ascending by distance).
+        final_results = []
+        while neighbors_heap:
+            neg_dist, smi, cid = heapq.heappop(neighbors_heap)
+            final_results.append((smi, cid, -neg_dist))
+        # Optionally, sort the results in ascending order of distance:
+        final_results.sort(key=lambda x: x[2])
+
+        # Create a DataFrame of the final results
+        df_results = pd.DataFrame(final_results, columns=["smiles", "cluster_id", f"{metric}_distance"])
+        return df_results
+    else: 
+        with Pool(processes=processes) as pool, tqdm(
+            desc="Molecules processed",
+            total=total_rows,
+            unit="mol"
+        ) as pbar:
+            for chunk_idx in range(total_chunks):
+                offset = chunk_idx *chunk_size 
+                query = (
+                    f"SELECT smiles, cluster_id FROM {table_name} "
+                    f"LIMIT {chunk_size} OFFSET {offset}"
+                )
+                # This method of selecting the query is much slower than do it based on rows
+                # However, one can do it if we only need to search for neighbors in certain space of the 
+                # map
+                # start_cluster = 98040 + chunk_idx*2
+                # end_cluster = start_cluster + 2
+                # query = (
+                #     f"SELECT smiles, cluster_id FROM {table_name} "
+                #     f"WHERE cluster_id >= '{start_cluster}' AND cluster_id < '{end_cluster}'"
+                # )
+                # query = ( f"SELECT smiles, cluster_id FROM {table_name} WHERE cluster_id >='{start_cluster}' AND cluster_id < '{end_cluster}'")
+                query_result = client.query(query)
+                chunk_data = query_result.result_rows
+                # If no rows returned, break early
+                if not chunk_data:
+                    break
+
+                # Convert result to a list of SMILES
+                smiles_list = [row[0] for row in chunk_data]
+                cluster_ids = [row[1] for row in chunk_data]
+
+                # Compute distances in parallel
+                distances = pool.map(func, smiles_list)
+                # Update progress bar by number of molecules processed in this chunk
+
+                pbar.update(len(distances))
+
+                # Update the max-heap with new results
+                for ((smi, dist), cid) in zip(distances, cluster_ids):
+                    if dist is None:
+                        continue
+                    # Always push negative distance (to simulate a max-heap)
+                    neg_dist = -dist
+                    if len(neighbors_heap) < top_n:
+                        heapq.heappush(neighbors_heap, (neg_dist, smi, cid))
+                    else:
+                        # Compare with the largest (worst) distance in the heap.
+                        # The largest distance is -neighbors_heap[0][0].
+                        if dist < -neighbors_heap[0][0]:
+                            heapq.heapreplace(neighbors_heap, (neg_dist, smi, cid))
+                del chunk_data, smiles_list, distances, cluster_ids
 
     # Convert final heap to a sorted list (ascending by distance)
     final_results = []
@@ -220,10 +280,11 @@ def main():
     query_molecule = "CN(C(=O)CCC1CCCCN1C(=O)C1=NC=CN1C)C1CC2CC2C1"
     nearest_neighbors_df = find_neighbors(
         query_smiles=query_molecule,
-        metric="manhattan",
+        metric="euclidian",
+        ipca_model="/mnt/10tb_hdd/clustered_enamine_database-copy/ipca_model.joblib",
         table_name="clustered_enamine",  # Adjust if your table name differs
         top_n=15_000,
-        chunk_size=35_000_000,  # Adjust chunk size as per memory constraints
+        chunk_size=10_000_000,  # Adjust chunk size as per memory constraints
         host="localhost",
         port=8123
     )
