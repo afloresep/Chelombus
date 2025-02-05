@@ -47,7 +47,7 @@ def compute_distance(item):
     """
     smiles, fp = item
     # Use the global target_fp computed from the input SMILES.
-    return (smiles, int(np.sum(np.abs(fp - target_fp))))
+    return (smiles, np.sum(np.abs(fp - target_fp)))
 
 
 # ------------------------------------------------------------------------------
@@ -89,6 +89,7 @@ def process_file_3d(file_path):
     Returns a list of (smiles, distance) tuples.
     """
     df = pd.read_parquet(file_path)
+    df_len = len(df)
     # Assumes that the first column is SMILES and columns 1-42 are the fingerprint.
     smiles_list = df.iloc[:, 0].tolist()
     fingerprint_array = df.iloc[:, 1:43].values  # shape: (num_molecules, 42)
@@ -97,7 +98,7 @@ def process_file_3d(file_path):
     # Compute distances using list comprehension.
     results = [compute_distance_3d(item) for item in items]
     del smiles_list, fingerprint_array, items, df
-    return results 
+    return results, df_len
 
 # ------------------------------------------------------------------------------
 def main(input_smiles, parquet_dir, top_n=10000):
@@ -130,7 +131,7 @@ def main(input_smiles, parquet_dir, top_n=10000):
         i +=1
         try:
             # Compute distances for molecules in this file.
-            results, rows_processed = process_file_3d(file_path)
+            results, rows_processed = process_file(file_path)
         except Exception as e:
             print(f"Error processing {file_path}: {e}")
             continue
@@ -160,7 +161,7 @@ if __name__ == '__main__':
 
     s = time.time()
     # Input SMILES for which you want to find similar molecules.
-    input_smiles ="CN(C(=O)CCC1CCCCN1C(=O)C1=NC=CN1C)C1CC2CC2C1"
+    input_smiles ="O=C(NC12CCC(C(=O)N3CCC(CO)=C(F)C3)(CC1)C2)C1=C(Cl)C=CS1"
     
     # Path to the Parquet file.
     parquet_file = "/mnt/10tb_hdd/enamine_fingerprints/output_file_*/batch_parquet/fingerprints_chunk_*.parquet"  # Replace with your actual Parquet file path.
