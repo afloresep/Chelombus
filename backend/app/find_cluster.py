@@ -6,15 +6,10 @@ from pydantic import BaseModel # To serialize the data into JSON for API respons
 from fastapi.middleware.cors import CORSMiddleware
 import pandas as pd
 import joblib
-from rtree import index
-import rtree
 from rdkit.Chem import rdMolDescriptors
-import tmap as tm
 from rdkit import Chem
 import numpy as np
-from rdkit.Chem import Draw
-from openpyxl import Workbook
-from openpyxl.drawing.image import Image
+# from rdkit.Chem import Draw
 from openpyxl import Workbook
 from openpyxl.drawing.image import Image
 
@@ -26,7 +21,8 @@ app.add_middleware(
     allow_origins=["http://127.0.0.1:5501", # local setup
                    "http://localhost", # Docker container 
                    "http://localhost:80",
-                   "http://localhost:3000" # Port where the frontend is running (docker)
+                   "http://localhost:3000", 
+                   "http://backend:8000", # Port where the frontend is running (docker)
                    # in production should be something like
                    # "https://chelombus.com",
                    ],  
@@ -97,7 +93,7 @@ def export_smiles_to_excel(smiles_list: list,
             mol = Chem.MolFromSmiles(smi)
             if mol:
                 image_path = f"mol_{row_idx}.png"
-                Draw.MolToFile(mol, image_path, size=(300, 300))
+                # Draw.MolToFile(mol, image_path, size=(300, 300))
                 
                 # Insert the image into Excel
                 img = Image(image_path)
@@ -152,7 +148,6 @@ def mqn_parallel(smiles_list: list) -> list:
     )
     return fingerprints
 
-
 # Base Model for Coordinates 
 class Coordinates(BaseModel):
     x: float
@@ -165,7 +160,6 @@ class ResponseModel(BaseModel):
     under the coordinates key
     """
     coordinates: Union[Coordinates, List[Coordinates]]
-
 
 def _get_coordinates_by_node_number(node_number) -> tuple:
     """
@@ -196,7 +190,6 @@ def _get_coordinates_by_node_number(node_number) -> tuple:
         return (x, y, z)
     else:
         return None  # Return None if no matching row is found
-    
 
 def find_cluster_from_smiles(cluster_ranges_df: pd.DataFrame, smiles: str):
     """
