@@ -180,7 +180,7 @@ def _get_coordinates_by_node_number(node_number) -> tuple:
     A tuple (x, y, z) if found, or None if not found.
     """
     # Load the CSV file
-    cluster_coordinates_df= pd.read_csv('data/database_cluster_coordinates.csv')
+    cluster_coordinates_df= pd.read_csv('data/new_clusters_coordinates.csv')
     
     # Construct the target cluster name
     target_name = f"cluster_{node_number}_TMAP.html"
@@ -198,7 +198,7 @@ def _get_coordinates_by_node_number(node_number) -> tuple:
         return None  # Return None if no matching row is found
     
 
-def find_cluster_from_smiles(pca_model, cluster_ranges_df: pd.DataFrame, smiles: str):
+def find_cluster_from_smiles(cluster_ranges_df: pd.DataFrame, smiles: str):
     """
     Returns the (x, y, z) coordinate for the first matching cluster ID and the cluster_id
     found in `csv_file` for the input SMILES.
@@ -251,8 +251,9 @@ async def find_cluster_from_jmse(smiles: dict) -> ResponseModel:
     string from the JMSE box
     """
     point = []
+    df = pd.read_csv("data/cluster_ranges.csv")
     smiles_coordinate, cluster_id = find_cluster_from_smiles(
-        csv_file="data/cluster_ranges.csv", 
+        cluster_ranges_df=df,
         smiles=smiles['smiles'], 
     )
 
