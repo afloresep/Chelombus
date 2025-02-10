@@ -63,7 +63,10 @@ def compute_distance_3d(item):
     fp = ipca.transform(fp.reshape(1, -1)) #compute fp
     # Use the global target_fp computed from the input SMILES.
 
-    return (smiles, np.float64(np.sum(np.abs(fp - target_fp_3d))))
+    # return (smiles, np.float64(np.sum(np.abs(fp - target_fp_3d)))) # Manhattan
+    
+    return (smiles, np.float64(np.sqrt(np.sum((fp - target_fp_3d) ** 2)))) # Euclidean
+
 
 # ------------------------------------------------------------------------------
 def process_file(file_path, dimension:str):
@@ -183,11 +186,11 @@ if __name__ == '__main__':
     top_n = 25_000
     
     # Run the main function.
-    closest_molecules = main(input_smiles, parquet_file, top_n)
+    closest_molecules = main(input_smiles, parquet_file, top_n, dimension='3')
 
     # Optionally, save the results to a CSV file.
-    results_df = pd.DataFrame(closest_molecules, columns=["SMILES", "Manhattan_42_Distance"])
-    results_df.to_csv("manhattan_42_dim_nn_search.csv", index=False)
+    results_df = pd.DataFrame(closest_molecules, columns=["SMILES", "Euclidean_3D_Distance"])
+    results_df.to_csv("euclidean_3_dim_nn_search.csv", index=False)
     
     # Also, print a few top results.
     print("Top closest molecules:")
