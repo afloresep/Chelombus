@@ -4,6 +4,9 @@ WORKDIR /app
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-COPY . /app
+# Copy specifically the backend app in charge of the searching (find-cluster)
+COPY ./app /app/app
 
-CMD ["uvicorn", "find-cluster:app", "--host", "0.0.0.0", "--port", "8000"]
+COPY ./data /app/data
+ 
+CMD ["uvicorn", "app.find_cluster:app", "--host", "0.0.0.0", "--port", "8000"]
