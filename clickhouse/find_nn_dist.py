@@ -12,8 +12,6 @@ from rdkit import Chem
 from rdkit.Chem import rdMolDescriptors
 
 from multiprocessing import Pool, cpu_count
-from functools import partial
-from tqdm import tqdm
 from typing import List, Tuple, Optional
 
 # ------------------------------------------------------------------------------
@@ -38,7 +36,7 @@ def compute_mqn(smiles: str) -> Optional[np.ndarray]:
         return None
 
 # ------------------------------------------------------------------------------
-# (c) Function to compute Manhattan distance.
+# Function to compute Manhattan distance.
 def compute_distance(item):
     """
     Given a tuple (smiles, fingerprint) for one molecule,
@@ -47,25 +45,28 @@ def compute_distance(item):
     """
     smiles, fp = item
     # Use the global target_fp computed from the input SMILES.
-    return (smiles, np.sum(np.abs(fp - target_fp)))
+    return (smiles, np.float64(np.sum(np.abs(fp - target_fp))))
 
 
 # ------------------------------------------------------------------------------
-# (c) Function to compute Manhattan distance.
+# Function to compute Manhattan distance on the 3D space
 def compute_distance_3d(item):
     """
     Given a tuple (smiles, fingerprint) for one molecule,
     compute and return (smiles, Manhattan distance)
     relative to the global target fingerprint.
+
+    In order to transform our 42 dimensional vector we have to 
+    transform it usign ipca
     """
     smiles, fp = item
     fp = ipca.transform(fp.reshape(1, -1)) #compute fp
     # Use the global target_fp computed from the input SMILES.
 
-    return (smiles, int(np.sum(np.abs(fp - target_fp_3d))))
+    return (smiles, np.float64(np.sum(np.abs(fp - target_fp_3d))))
 
 # ------------------------------------------------------------------------------
-def process_file(file_path):
+def process_file(file_path, dimension:str):
     """
     Reads a Parquet file and computes the Manhattan distances for all its molecules.
     Returns a list of (smiles, distance) tuples.
@@ -78,7 +79,14 @@ def process_file(file_path):
     items = list(zip(smiles_list, fingerprint_array))
     
     # Compute distances using list comprehension.
-    results = [compute_distance(item) for item in items]
+    if str(dimension) == '42':
+        results = [compute_distance(item) for item in items]
+        del smiles_list, fingerprint_array, items, df
+    elif str(dimension) =='3': 
+        results = [compute_distance_3d(item) for item in items]
+        del smiles_list, fingerprint_array, items, df
+    else: 
+        raise ValueError("Only '42' or '3' as dimension arguments")
     return results, df_len
 
 
@@ -101,13 +109,18 @@ def process_file_3d(file_path):
     return results, df_len
 
 # ------------------------------------------------------------------------------
-def main(input_smiles, parquet_dir, top_n=10000):
+def main(input_smiles, parquet_dir, top_n, dimension):
     """
     For a given input SMILES, iterates through all Parquet files in the directory,
     computes Manhattan distances for each molecule's fingerprint, and maintains
     a global heap of the top_n (lowest distance) molecules.
+
+    :param input_smiles: input SMILES to be used as reference molecule for the search
+    :param parquet_dir: path to parquet directories storing the MQN fingerprints 
+    :param top_n: number of nearest neighbors on the search to be saved
+    :param dimension: Dimension (42 or 3) to be used in the distance calculation
     
-    Returns a sorted list (ascending by Manhattan distance) of tuples: (smiles, distance).
+    :return sorted_list: Returns sorted list (ascending by Manhattan distance) of tuples: (smiles, distance).
     """
     global target_fp  # Make target_fp available to the compute_distance function
     target_fp = compute_mqn(input_smiles)
@@ -131,7 +144,7 @@ def main(input_smiles, parquet_dir, top_n=10000):
         i +=1
         try:
             # Compute distances for molecules in this file.
-            results, rows_processed = process_file_3d(file_path)
+            results, rows_processed = process_file(file_path, dimension=dimension)
         except Exception as e:
             print(f"Error processing {file_path}: {e}")
             continue
@@ -161,25 +174,25 @@ if __name__ == '__main__':
 
     s = time.time()
     # Input SMILES for which you want to find similar molecules.
-    input_smiles ="CN1CCN(C)[C@@H](C(=O)NC2(C(=O)NC3CSC3)CC(F)C2)C1"
+    input_smiles ="O=C(NC12CCC(C(=O)N3CCC(CO)=C(F)C3)(CC1)C2)C1=C(Cl)C=CS1"
     
     # Path to the Parquet file.
     parquet_file = "/mnt/10tb_hdd/enamine_fingerprints/output_file_*/batch_parquet/fingerprints_chunk_*.parquet"  # Replace with your actual Parquet file path.
     
     # Number of top results to return.
-    top_n = 15_000
+    top_n = 25_000
     
     # Run the main function.
     closest_molecules = main(input_smiles, parquet_file, top_n)
 
     # Optionally, save the results to a CSV file.
-    results_df = pd.DataFrame(closest_molecules, columns=["SMILES", "Manhattan_Distance"])
-    results_df.to_csv("top_100_closest_molecules_1.csv", index=False)
+    results_df = pd.DataFrame(closest_molecules, columns=["SMILES", "Manhattan_42_Distance"])
+    results_df.to_csv("manhattan_42_dim_nn_search.csv", index=False)
     
     # Also, print a few top results.
     print("Top closest molecules:")
     for smiles, distance in closest_molecules[:10]:
         print(f"SMILES: {smiles}, Manhattan Distance: {distance}")
-
+    print("This search is meant to find the top N nearest neighbors on the 42 dimensional space using manhattan distance ")
     e = time.time()
     print(f"{e - s} time")
