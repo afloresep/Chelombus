@@ -33,6 +33,8 @@ services:
     container_name: backend
     ports:
       - "8000:8000"
+    networks: 
+      - chelombus-network
     
   dynamic-tmap:
     user: root
