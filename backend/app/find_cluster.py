@@ -1,3 +1,4 @@
+from tqdm import tqdm
 import os
 from fastapi import FastAPI
 from typing import List, Union
@@ -71,8 +72,8 @@ def export_smiles_to_excel(smiles_list: list,
 
     row_idx = 2  # Start populating data at row 2
     i = 0
-    df = pd.read_csv("/data/cluster_ranges.csv")
-    pca_model = joblib.load("data/ipca_model.joblib")
+    df = pd.read_csv("/home/afloresep/work/chelombus/backend/data/cluster_ranges.csv")
+    pca_model = joblib.load("/home/afloresep/work/chelombus/backend/data/ipca_model.joblib")
 
     fps = mqn_parallel(smiles_list=smiles_list) 
     for smi in smiles_list:
@@ -174,7 +175,7 @@ def _get_coordinates_by_node_number(node_number) -> tuple:
     A tuple (x, y, z) if found, or None if not found.
     """
     # Load the CSV file
-    cluster_coordinates_df= pd.read_csv('data/new_clusters_coordinates.csv')
+    cluster_coordinates_df= pd.read_csv('/home/afloresep/work/chelombus/backend/data/new_clusters_coordinates.csv')
     
     # Construct the target cluster name
     target_name = f"cluster_{node_number}_TMAP.html"
@@ -204,16 +205,14 @@ def find_cluster_from_smiles(cluster_ranges_df: pd.DataFrame, smiles: str):
     GROUP BY cluster_id ORDER BY cluster_id ASC"
     as this can take a while we load it from a csv file with that data
     """
-    # 1) Load the CSV file
+    # Load trained PCA model
+    pca = joblib.load("/home/afloresep/work/chelombus/backend/data/ipca_model.joblib")
 
-    # 2) Load your trained PCA model
-    pca = joblib.load("data/ipca_model.joblib")
-
-    # 3) Compute PCA coordinates
+    # Compute PCA coordinates
     fingerprint = calculate_mqn_fp(smiles=smiles).reshape(1, -1)
     pca_coordinates = pca.transform(fingerprint).reshape(3, 1)
 
-    # 4) Filter dataframe
+    # Filter dataframe
     matching_clusters = cluster_ranges_df[
         (cluster_ranges_df['min_PCA_1'] <= np.float64(pca_coordinates[0])) & (cluster_ranges_df['max_PCA_1'] >= np.float64(pca_coordinates[0])) &
         (cluster_ranges_df['min_PCA_2'] <= np.float64(pca_coordinates[1])) & (cluster_ranges_df['max_PCA_2'] >= np.float64(pca_coordinates[1])) &
@@ -234,6 +233,35 @@ def find_cluster_from_smiles(cluster_ranges_df: pd.DataFrame, smiles: str):
     
     return coordinate, cluster_id
 
+def cluster_from_smiles_csv(smiles_csv:str):
+    """Method to get from smiles to smiles, cluster_id and coordinates
+
+    Args:
+        smiles_csv (str): path to the csv with the smiles 
+
+    Returns:
+        _pd.Dataframe_: Pandas Dataframe with columns smiles, cluster_id and coordinates
+    """
+
+    # read dataframe
+    smiles_df = pd.read_csv(smiles_csv)
+
+    cluster_ranges =pd.read_csv("/home/afloresep/work/chelombus/backend/data/cluster_ranges.csv")
+
+    smiles = smiles_df['smiles'].values
+    smiles_cluster = {}
+
+    with tqdm(desc='Smiles processed', total=len(smiles), unit='smiles') as pbar:
+        for s in smiles: 
+            smiles_cluster[s] = find_cluster_from_smiles(cluster_ranges_df=cluster_ranges, smiles=s)
+            pbar.update(int(1))
+            # Transforming into a pandas DataFrame
+    df = pd.DataFrame(
+        [(key, value[0], value[1]) for key, value in smiles_cluster.items()],
+        columns=["smiles", "coordinates", "cluster_id"]
+    )
+    return df 
+
 @app.post("/api/find-cluster-from-jmse", response_model=ResponseModel)
 async def find_cluster_from_jmse(smiles: dict) -> ResponseModel:
     """
@@ -244,7 +272,7 @@ async def find_cluster_from_jmse(smiles: dict) -> ResponseModel:
     string from the JMSE box
     """
     point = []
-    df = pd.read_csv("data/cluster_ranges.csv")
+    df = pd.read_csv("/home/afloresep/work/chelombus/backend/data/cluster_ranges.csv")
     smiles_coordinate, cluster_id = find_cluster_from_smiles(
         cluster_ranges_df=df,
         smiles=smiles['smiles'], 
@@ -276,7 +304,7 @@ async def find_cluster_from_file(request: dict) -> ResponseModel:
 
         # find_cluster_from_smiles will return either (x, y, z) or None
         smiles_coordinate, cluster_id = find_cluster_from_smiles(
-            csv_file="data/cluster_ranges.csv", 
+            cluster_ranges_df="/home/afloresep/work/chelombus/backend/data/cluster_ranges.csv", 
             smiles=neighbor_smiles,
         )
 
@@ -290,3 +318,12 @@ async def find_cluster_from_file(request: dict) -> ResponseModel:
     # Save file with results 
     export_smiles_to_excel(smiles_list=smiles_list, output_excel="cluster_search.xlsx")
     return ResponseModel(coordinates=points)
+
+if __name__=="__main__":
+
+    df = cluster_from_smiles_csv("/home/afloresep/work/chelombus/backend/data_dumpster/15k_nn_euclidean_42dim_ubelix.csv")
+    df.to_csv('eucl-42-dim-nn_ubelix.csv', index=False)
+
+
+
+
