@@ -139,7 +139,7 @@ class TmapGenerator:
         """
         pca_columns = ['PCA_1', 'PCA_2', 'PCA_3']
         pca_values = self.dataframe[pca_columns].values # array shape (125000 , 3)
-        nbrs = NearestNeighbors(n_neighbors=21, metric='euclidean').fit(pca_values)
+        nbrs = NearestNeighbors(n_neighbors=21, metric='manhattan').fit(pca_values)
     
         distances, indices = nbrs.kneighbors(pca_values)
 

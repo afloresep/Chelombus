@@ -9,10 +9,10 @@ from threading import Thread, Event
 # Configuration
 SEED = 42
 NUM_OUTPUT_FILES = 10
-OUTPUT_DIR = '/mnt/samsung_2tb/mixed_data'
+OUTPUT_DIR = '/mnt/10tb_hdd/cleaned_enamine_10b'
 OUTPUT_PREFIX = 'output_file_'
 HASH_FUNC = xxhash.xxh64
-BUFFER_SIZE = 16 * 1024 * 1024  # 16MB buffer
+BUFFER_SIZE = 32 * 1024 * 1024  # 16MB buffer
 
 # Ensure output directory exists
 os.makedirs(OUTPUT_DIR, exist_ok=True)
@@ -22,7 +22,7 @@ total_lines = 0
 stop_event = Event()
 
 def process_line(line, output_file_handles):
-    molecule_smiles = line.strip()
+    molecule_smiles = line.strip().split()[0] # only take first column = smiles
     hash_value = HASH_FUNC(molecule_smiles.encode('utf-8'), seed=SEED).intdigest()
     file_index = hash_value % NUM_OUTPUT_FILES
     output_file_handles[file_index].write(f'{hash_value}\t{molecule_smiles}\n')
@@ -64,9 +64,15 @@ if __name__ == '__main__':
     progress_thread.start()
 
     try:
+        # Check if the input is a folder, if true then go through the files in the folder
+        if len(input_files) == 1 and os.path.isdir(input_files[0]):
         # Process each input file
-        for input_file in input_files:
-            process_input_file(input_file)
+            for input_file in os.listdir(input_files[0]):
+                print(f"Processing {input_file}")
+                process_input_file(os.path.join(os.path.abspath(input_files[0]), input_file))
+        else:
+            for input_file in input_files:
+                process_input_file(input_file)
     finally:
         # Stop the progress display and join the thread
         stop_event.set()

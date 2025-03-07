@@ -1,3 +1,4 @@
+.gitignore
 dynamic_tmap/data/
 dynamic_tmap/notebooks/
 dynamic_tmap/__pycache__/
@@ -26,3 +27,5 @@ dynamic_tmap/src/utils/js_to_csv.py
 dynamic_tmap/scripts/filter_clusters.py
 frontend/find_missing.py
 backend/cluster_names.txt
+frontend/rewrite_links.py
+backend/data_dumpster
