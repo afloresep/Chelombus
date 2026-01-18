@@ -1,140 +1,147 @@
-# SPQR: Streaming Product Quantization for MoleculaR data
+# Chelombus
 
-[![Build Status](https://img.shields.io/badge/build-passing-brightgreen)](https://github.com/afloresep/SPiQ/blob/master/.github/workflows/test.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Version](https://img.shields.io/badge/version-0.1.0-blue)](https://github.com/afloresep/SPiQ)
+[![Version](https://img.shields.io/badge/version-0.1.0-blue)](https://github.com/afloresep/chelombus)
+[![Python](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
 
-SPQR is a Python library designed for large-scale clustering of molecular data using Streaming Product Quantization (PQ). It allows you to process billions of molecules in a streaming fashion, transforming SMILES strings into compact PQ-codes for efficient clustering.
+**Billion-scale molecular clustering and visualization on commodity hardware.**
 
-## Table of Contents
+Chelombus enables interactive exploration of ultra-large chemical datasets (up to billions of molecules) using Product Quantization and nested TMAPs. Process the entire Enamine REAL database (9.6B molecules) on a single workstation.
 
-- [Overview](#overview)
-- [Features](#features)
-- [Installation](#installation)
-- [Usage](#usage)
-  - [Pipeline Example](#pipeline-example)
-  - [Tutorial Notebook](#tutorial-notebook)
-- [Project Structure](#project-structure)
-- [Documentation](#documentation)
-- [Testing](#testing)
-- [Contributing](#contributing)
-- [License](#license)
-- [Acknowledgments](#acknowledgments)
+**Live Demo**: [https://chelombus.gdb.tools](https://chelombus.gdb.tools)
 
 ## Overview
 
-SPQR leverages the concept of Streaming Product Quantization to cluster high-dimensional molecular data without requiring the entire dataset to be in memory. Starting from SMILES strings, SPQR calculates molecular fingerprints, applies PQ encoding, and ultimately clusters the data efficiently.
+Chelombus implements the "Nested TMAP" framework for visualizing billion-sized molecular datasets:
 
-## Features
+```
+SMILES → MQN Fingerprints → PQ Encoding → PQk-means Clustering → Nested TMAPs
+```
 
-- **Scalability:** Process data in chunks for datasets that don't fit in memory.
-- **Efficiency:** Drastically reduce memory usage by converting high-dimensional fingerprints to compact PQ-codes.
-- **Modular Design:** Separate modules for encoding, clustering, and data streaming.
-- **Ease of Use:** Simple API with well-documented functions and usage examples.
+**Key Features**:
+- **Scalability**: Stream billions of molecules without loading everything into memory
+- **Efficiency**: Compress 42-dimensional MQN vectors to 6-byte PQ codes (28x compression)
+- **Visualization**: Navigate from global overview to individual molecules in two clicks
+- **Accessibility**: Runs on commodity hardware (tested: AMD Ryzen 7, 64GB RAM)
 
 ## Installation
 
-1. **Clone the repository:**
-
-   ```bash
-   git clone https://github.com/afloresep/spqr.git
-   cd spqr
-   ```
-
-	2.	Create a virtual environment and install dependencies:
-
-    ```bash
-    python -m venv venv
-    source venv/bin/activate  # On Windows use `venv\Scripts\activate`
-    pip install -r requirements.txt
-    ```
-
-	3.	Optional: Install the package in editable mode:
-
-    ```bash
-    pip install -e . 
-    ```
-
-## Usage
-
-### Pipeline Example
-
-The entire pipeline from SMILES strings to clustering can be run via the main script:
-
 ```bash
-python scripts/main.py
+# Clone the repository
+git clone https://github.com/afloresep/chelombus.git
+cd chelombus
+
+# Create virtual environment
+python -m venv venv
+source venv/bin/activate  # On Windows: venv\Scripts\activate
+
+# Install with core dependencies
+pip install -e .
+
+# Install with clustering support
+pip install -e ".[clustering]"
+
+# Install with visualization support
+pip install -e ".[visualization]"
+
+# Install everything
+pip install -e ".[all]"
 ```
 
-This script integrates all modules (from data streaming to fingerprint calculation and PQ encoding) for clustering molecular data.
+## Quick Start
 
-### Tutorial Notebook
+```python
+from chelombus import DataStreamer, FingerprintCalculator, PQEncoder, PQKMeans
 
-For an interactive tutorial, check out `examples/tutorial.ipynb`. 
+# 1. Stream SMILES in chunks
+streamer = DataStreamer(path='molecules.smi', chunksize=100000)
+
+# 2. Calculate MQN fingerprints
+fp_calc = FingerprintCalculator()
+for smiles_chunk in streamer.parse_input():
+    fingerprints = fp_calc.FingerprintFromSmiles(smiles_chunk, fp='mqn')
+    # Save fingerprints...
+
+# 3. Train PQ encoder on sample
+encoder = PQEncoder(k=256, m=6, iterations=20)
+encoder.fit(training_fingerprints)
+
+# 4. Transform all fingerprints to PQ codes
+pq_codes = encoder.transform(fingerprints)
+
+# 5. Cluster with PQk-means
+clusterer = PQKMeans(encoder, k=100000)
+labels = clusterer.fit_predict(pq_codes)
+```
 
 ## Project Structure
 
-```bash
-├── data
-│   ├── data_lite.txt           # Data for the tutorial example
-├── docs                        # Documentation (Sphinx configuration, guides, etc.)
-├── examples
-│   ├── tutorial.ipynb          # Notebook demonstrating the API usage
-├── pyproject.toml
-├── README.md
-├── requirements.txt
-├── scripts
-│   └── main.py                 # Main pipeline: SMILES -> cluster
-├── setup.py
-├── spiq
-│   ├── clustering              # Clustering modules and implementations
-│   ├── encoder
-│   │   ├── encoder_base.py
-│   │   ├── encoder.py
-│   │   └── __init__.py
-│   ├── __init__.py
-│   ├── streamer
-│   │   ├── data_streamer.py
-│   │   └── __init__.py
-│   └── utils
-│       ├── fingerprints.py
-│       ├── helper_functions.py
-│       └── __init__.py
-└── tests                       # Unit tests for all modules
-    ├── __init__.py
-    ├── test_clustering.py
-    ├── test_data_streamer.py
-    ├── test_encoder.py
-    ├── test_fingerprints.py
-    ├── test_trainer.py
-    └── test_utils.py
+```
+chelombus/
+├── chelombus/
+│   ├── encoder/          # Product Quantization encoder
+│   ├── clustering/       # PQk-means wrapper
+│   ├── streamer/         # Memory-efficient data streaming
+│   └── utils/            # Fingerprints, visualization, helpers
+├── scripts/              # Pipeline scripts
+├── examples/             # Tutorial notebooks
+└── tests/                # Unit tests
 ```
 
-# Documentation
-- API Reference: Documentation is auto-generated from the code’s docstrings using Sphinx. See the docs folder for more details.
-- Tutorials & Guides: Refer to the Jupyter Notebook in examples/tutorial.ipynb for a hands-on introduction.
+## Pipeline Stages
 
-# Testing
+| Stage | Input | Output | Time (9.6B molecules) |
+|-------|-------|--------|----------------------|
+| MQN Calculation | SMILES | 42D vectors | ~hours (streaming) |
+| PQ Encoding | MQN vectors | 6-byte codes | ~3 hours |
+| PQk-means Training | PQ codes | Cluster model | ~2 days |
+| Cluster Assignment | PQ codes | Labels | ~4 hours |
+| Primary TMAP | Representatives | Visualization | ~1 minute |
 
-During the development I've been writing different tests to ensure the key functionalities remain working as expected after some changes. To run all the tests use:
+## Documentation
+
+- **Tutorial**: See `examples/tutorial.ipynb` for a hands-on introduction
+- **Large-scale example**: See `examples/enamine_1B_clustering.ipynb`
+- **API Reference**: Generated from docstrings using Sphinx (see `docs/`)
+
+## Testing
 
 ```bash
+# Run all tests
 pytest tests/
+
+# Run specific test file
+pytest tests/test_encoder.py -v
 ```
 
-If instead you want to run a single group of test -for the data_streamer module for instance-, you can do: 
+## Citation
 
-```bash
-pytest test/test_data_streamer.py
+If you use Chelombus in your research, please cite:
+
+```bibtex
+@article{chelombus2025,
+  title={Nested Tree-maps to visualize Billions of Molecules},
+  author={Flores Sep{\'u}lveda, Alejandro and Reymond, Jean-Louis},
+  journal={},
+  year={2025}
+}
 ```
 
+## Contributing
 
-# Contributing
-Contributions are welcome! Please follow these guidelines:
-1.	Fork the repository and create your branch: `git checkout -b feature/my-feature`
-2.	Ensure your proper docstrings.
-3.	(Ideally) Write tests for new features.
-4.	Open a pull request describing your changes.
+Contributions are welcome! Please:
+1. Fork the repository
+2. Create a feature branch: `git checkout -b feature/my-feature`
+3. Write tests for new functionality
+4. Submit a pull request
 
-# License
-This project is licensed under the MIT License. See the LICENSE file for details.
+## License
 
+MIT License. See [LICENSE](LICENSE) for details.
+
+## Acknowledgments
+
+- [PQk-means](https://github.com/DwangoMediaVillage/pqkmeans) by Matsui et al.
+- [TMAP](https://github.com/reymond-group/tmap) by Probst & Reymond
+- [RDKit](https://www.rdkit.org/) for cheminformatics functionality
+- Swiss National Science Foundation (grant no. 200020_178998)

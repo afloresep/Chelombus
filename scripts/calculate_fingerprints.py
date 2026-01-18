@@ -1,10 +1,10 @@
 # Script to calculate the fingeprints from SMILES
 import os
 import numpy as np
-from spiq.streamer.data_streamer import DataStreamer
-from spiq.utils.fingerprints import  FingerprintCalculator
-from spiq.utils.helper_functions import format_time, save_chunk
-from spiq.encoder.encoder import PQEncoder
+from chelombus.streamer.data_streamer import DataStreamer
+from chelombus.utils.fingerprints import  FingerprintCalculator
+from chelombus.utils.helper_functions import format_time, save_chunk
+from chelombus.encoder.encoder import PQEncoder
 import time
 import gc
 import logging

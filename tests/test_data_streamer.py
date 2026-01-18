@@ -3,7 +3,7 @@ import pytest
 from tempfile import TemporaryDirectory
 from pathlib import Path
 from typing import Iterator, List, Optional
-from spiq.streamer.data_streamer import DataStreamer
+from chelombus.streamer.data_streamer import DataStreamer
 
 
 def test_parse_input_with_chunksize(tmp_path: Path):

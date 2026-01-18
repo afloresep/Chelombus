@@ -2,8 +2,8 @@ import numpy as np
 import pytest
 import logging
 from functools import partial
-from spiq.streamer.data_streamer import DataStreamer
-from spiq.utils.fingerprints import _calculate_morgan_fp, _calculate_mqn_fp,  FingerprintCalculator
+from chelombus.streamer.data_streamer import DataStreamer
+from chelombus.utils.fingerprints import _calculate_morgan_fp, _calculate_mqn_fp,  FingerprintCalculator
 
 # A fixture for common fingerprint parameters.
 @pytest.fixture
@@ -35,16 +35,13 @@ def test_calculate_mqn_fp_valid(fp_params):
 
 def test_calculate_morgan_fp_invalid(fp_params):
     """
-    Test that _calculate_morgan_fp returns a random fingerprint (0s and 1s)
-    for an invalid SMILES string.
+    Test that _calculate_morgan_fp returns None for an invalid SMILES string.
+    This ensures data integrity by not inserting random fingerprints.
     """
     smiles = "invalid_smiles"
     fingerprint = _calculate_morgan_fp(smiles, **fp_params)
-    
-    assert isinstance(fingerprint, np.ndarray)
-    assert fingerprint.shape[0] == fp_params['fpSize']
-    
-    assert np.all(np.isin(fingerprint, [0, 1]))
+
+    assert fingerprint is None, "Invalid SMILES should return None, not a fingerprint"
 
 
 def test_calculate_morgan_fp_missing_parameters():

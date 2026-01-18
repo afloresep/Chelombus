@@ -1,9 +1,9 @@
 import os
 import numpy as np
-from spiq.streamer.data_streamer import DataStreamer
-from spiq.utils.fingerprints import  FingerprintCalculator
-from spiq.utils.helper_functions import format_time, save_chunk
-from spiq.encoder.encoder import PQEncoder
+from chelombus.streamer.data_streamer import DataStreamer
+from chelombus.utils.fingerprints import  FingerprintCalculator
+from chelombus.utils.helper_functions import format_time, save_chunk
+from chelombus.encoder.encoder import PQEncoder
 import time
 import gc
 import logging
@@ -89,21 +89,23 @@ def get_training_data(fp_path:str,
     
     if file_ext == 'parquet':
         for i, file in enumerate(files):
-            fp_df = pd.read_parquet(os.path.join(fp_path, file), engine='pyarrow')
+            # Handle both glob results (full paths) and listdir results (filenames only)
+            file_path = file if file_format else os.path.join(fp_path, file)
+            fp_df = pd.read_parquet(file_path, engine='pyarrow')
             assert len(fp_df) > fp_sample_size, "The number of fingerprints in the file must be larger than the fraction sample size"
             fp_df_sample = fp_df.sample(fp_sample_size)
             arr = fp_df_sample.to_numpy()
             assert arr.shape[1] == fpSize, f"The fingerprint size of the read fingerprint should be the same as the selected fingerprint size for the training data. Read fpSize={arr.shape[1]} but got args.fpSize={fpSize}"
-            training_data[i* int(fp_sample_size):(i+1)*int(fp_sample_size), :] = arr
-            print(f"\rTraining size: {i*(int(fp_sample_size)):,}/{fp_sample_size*number_files:,}. Files used: {i}/{number_files}", end='', flush=True)
-        # Check the size of the training data
+            training_data[i * int(fp_sample_size):(i + 1) * int(fp_sample_size), :] = arr
+            print(f"\rTraining size: {(i + 1) * int(fp_sample_size):,}/{fp_sample_size * number_files:,}. Files used: {i + 1}/{number_files}", end='', flush=True)
 
     if file_ext == 'npy':
-            fp_arr = np.load(os.path.join(fp_path, file))
+        for i, file in enumerate(files):
+            fp_arr = np.load(file if file_format else os.path.join(fp_path, file))
             assert fp_arr.shape[0] > fp_sample_size, "The number of fingerprints in the file must be larger than the fraction sample size"
-            fp_sample_indices = np.random.choice(fp_df_sample.shape[0], size=fp_sample_size) # select random amount of fp from the loaded fp array
-            training_data[i* int(fp_sample_size):(i+1)*int(fp_sample_size), :] = fp_arr[fp_sample_indices]
-            print(f"\rTraining size: {i*(int(fp_sample_size)):,}/{fp_sample_size*number_files:,}. Files used: {i}/{number_files}", end='', flush=True) 
+            fp_sample_indices = np.random.choice(fp_arr.shape[0], size=fp_sample_size, replace=False)
+            training_data[i * int(fp_sample_size):(i + 1) * int(fp_sample_size), :] = fp_arr[fp_sample_indices]
+            print(f"\rTraining size: {(i + 1) * int(fp_sample_size):,}/{fp_sample_size * number_files:,}. Files used: {i + 1}/{number_files}", end='', flush=True) 
 
     
     print(f"\nSaving {training_data.shape} training samples in {output_path}")

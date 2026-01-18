@@ -1,8 +1,7 @@
 import os
 import time
 import numpy as np
-from spiq.utils.helper_functions import format_time, save_chunk
-import time
+from chelombus.utils.helper_functions import format_time, save_chunk
 import logging
 logger = logging.getLogger(__name__)
 import argparse
@@ -19,27 +18,29 @@ def parse_arguments():
     parser.add_argument('--debug', type=bool, default=False, help="For running the transformatino with all the assert methods. Introduces safety checks and better error output at the expense of time. Default is False")
     return parser.parse_args()
 
-def transform(fp_path:str, output_path:str,N:int=20_000_000_000):
-    
+def transform(fp_path: str, output_path: str, pq_encoder, N: int = 20_000_000_000):
+    """Transform fingerprints to PQ codes using a trained encoder.
+
+    Args:
+        fp_path: Path to directory containing fingerprint parquet files
+        output_path: Path to save output files
+        pq_encoder: Trained PQEncoder instance
+        N: Maximum number of samples (pre-allocated array size)
+    """
     count = 0
     import glob
     path = os.path.join(fp_path, '*.parquet')
     fp_files = glob.glob(path)
     print(f"Reading {len(fp_files)} files ")
-    
-    """
-    Passing the number of samples (N) is not necessary although it can be passed.
-    Instead having to pass the number of pq codes to generate (N) which can be complex/large 
-    -thus annoying to remember or type- we just create a sufficiently large array of zeros 
-    and start populating as we process each chunk. This process is lazy so we won't run into OOM
-    At the end we just passed the actual number of pqcodes processed. 
-    """
+
+    # Pre-allocate array for PQ codes. We create a sufficiently large array
+    # and populate it as we process each chunk. At the end we trim to actual size.
     import time
 
     pq_codes = np.zeros((N, pq_encoder.m), dtype=pq_encoder.codebook_dtype)
     for index, fp_file in enumerate(fp_files):
-        
-        st = time.perf_counter() 
+
+        st = time.perf_counter()
         fp_chunk_df = pd.read_parquet(fp_file)
         fp_chunk = fp_chunk_df.drop(columns='smiles').to_numpy()
         arr_pq_codes = pq_encoder.transform(fp_chunk, verbose=0)
@@ -69,16 +70,23 @@ def transform(fp_path:str, output_path:str,N:int=20_000_000_000):
 def main():
     args = parse_arguments()
 
-    global pq_encoder, verbose, debug
     verbose = args.verbose
     debug = args.debug
-    try: 
+
+    try:
         pq_encoder = joblib.load(args.pq_model)
     except Exception as e:
-        raise ValueError('Could not load the pq-model. Raised exception ', e) 
+        raise ValueError(f'Could not load the pq-model from {args.pq_model}. Exception: {e}')
+
+    if not hasattr(pq_encoder, 'encoder_is_trained') or not pq_encoder.encoder_is_trained:
+        raise ValueError('The loaded model is not a trained PQEncoder')
+
     s = time.time()
-    transform(fp_path=args.fp_path, 
-              output_path=args.output_path)
+    transform(
+        fp_path=args.fp_path,
+        output_path=args.output_path,
+        pq_encoder=pq_encoder
+    )
     e = time.time()
 
     print("\nGenerating PQ codes took: ", format_time(e-s))

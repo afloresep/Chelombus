@@ -1,7 +1,7 @@
 import os
 from typing import Iterator, List, Optional
 
-from spiq.utils.helper_functions import _process_input
+from chelombus.utils.helper_functions import _process_input
 
 class DataStreamer:
     """

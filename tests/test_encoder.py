@@ -1,7 +1,7 @@
 import pytest
 import numpy as np
 
-from spiq.encoder.encoder import PQEncoder 
+from chelombus.encoder.encoder import PQEncoder 
 
 def test_fit_successful_with_normal_split():
     """

@@ -9,7 +9,7 @@ import time
 import argparse
 import pandas as pd
 from pandarallel import pandarallel
-from spiq.utils.fingerprints import FingerprintCalculator
+from chelombus.utils.fingerprints import FingerprintCalculator
 import numpy as np
 from sklearn.neighbors import NearestNeighbors
 
@@ -161,8 +161,8 @@ def representative_tmap(smiles:list,
         for inx, row in descriptors.iterrows():
             labels.append(row['smiles'])
 
-        c_columns = ["HAC", "Number Aromatic Atoms", "Fraction Aromatic_atoms",
-                        "Number of Rings", "MW", "clogP", "Fraction Csp3"]
+        c_columns = ["HAC", "Number Aromatic Atoms", "NumHBA", "NumHBD",
+                     "Number of Rings", "MW", "clogP", "Fraction Csp3"]
         c = [descriptors[col].to_numpy() for col in c_columns]
 
         # Plotting
@@ -185,10 +185,10 @@ def representative_tmap(smiles:list,
             point_scale= 2.5 ,
             max_point_size= 20,
             interactive=True,
-            series_title= ['HAC', 'Number Aromatic Atoms', 'Fraction Aromatic_atoms', 'Number of Rings', 'MW', 'clogP', 'Fraction Csp3'], 
-            has_legend=True,           
-            colormap=['rainbow', 'rainbow', 'rainbow', 'rainbow', 'rainbow', 'rainbow', 'rainbow'],
-            categorical=[False, False, False, False, False, False, False],
+            series_title= ['HAC', 'Number Aromatic Atoms', 'NumHBA', 'NumHBD', 'Number of Rings', 'MW', 'clogP', 'Fraction Csp3'],
+            has_legend=True,
+            colormap=['rainbow', 'rainbow', 'rainbow', 'rainbow', 'rainbow', 'rainbow', 'rainbow', 'rainbow'],
+            categorical=[False, False, False, False, False, False, False, False],
         )
 
         f.add_tree(tmap_name+"_TMAP_tree", {"from": s, "to": t}, point_helper=tmap_name+"_TMAP")
@@ -217,8 +217,8 @@ if __name__=="__main__":
 
     elif args.smiles is not None:
         with open(args.smiles, 'r') as file:
-            smiles = file.split(f'/n')
-        create_tmap(smiles=args.smiles, fingerprint=args.fingerprint, tmap_name='my_tmap')
+            smiles = [line.strip() for line in file.readlines() if line.strip()]
+        create_tmap(smiles=smiles, fingerprint=args.fingerprint, tmap_name='my_tmap')
 
     else:
         raise ValueError("Either a valid path for the Dataframe or the SMILES must be provided")

@@ -4,7 +4,7 @@ import pandas as pd
 import pytest
 
 # Import the helper function; adjust the module name if necessary.
-from spiq.utils.helper_functions import save_chunk
+from chelombus.utils.helper_functions import save_chunk
 
 @pytest.fixture
 def sample_fp_chunk():

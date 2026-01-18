@@ -27,7 +27,7 @@ if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
 try:
-    from spiq.utils.helper_functions import format_time, _process_input
+    from chelombus.utils.helper_functions import format_time, _process_input
 except ModuleNotFoundError as exc:
     if exc.name != "pqkmeans":
         raise
@@ -202,7 +202,7 @@ def main():
     args = parse_args()
 
     try:
-        from spiq.clustering.PyQKmeans import PQKMeans
+        from chelombus.clustering.PyQKmeans import PQKMeans
     except ModuleNotFoundError as exc:
         missing_dep = exc.name == "pqkmeans"
         msg = ("Missing optional dependency 'pqkmeans'. Install it with "

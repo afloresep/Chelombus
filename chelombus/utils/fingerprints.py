@@ -41,32 +41,32 @@ def _calculate_morgan_fp(smiles: str, **params) -> np.array:
             Expected keys:
                 - fpSize (int): Size of the fingerprint (number of bits).
                 - radius (int): Radius parameter for the Morgan algorithm.
-                - to_numpy(bool): Bool to convert the fingeprint to a numpy array. Default True, 
-                otherwise is returned as `rdkit.DataStructs.cDataStructs.ExplicitBitVect` object
+                - to_numpy (bool): Convert fingerprint to numpy array. Default True,
+                  otherwise returned as rdkit.DataStructs.cDataStructs.ExplicitBitVect
 
     Returns:
-        np.array: An array representing the fingerprint.
-            If the molecule conversion fails, a random fingerprint (with values 0 or 1) is returned.
-            If an exception occurs during fingerprint calculation, None is returned.
+        np.array: An array representing the fingerprint, or None if the SMILES
+            could not be parsed or an error occurred.
     """
     fpSize = params.get('fpSize')
     radius = params.get('radius')
-    to_numpy= params.get('to_numpy')
+    to_numpy = params.get('to_numpy', True)
 
     if fpSize is None or radius is None:
         raise ValueError("Missing required parameters: 'fpSize' and/or 'radius'.")
+
     try:
         mol = Chem.MolFromSmiles(smiles)
         if mol is None:
-            logger.warning(f"\nSMILES '{smiles}' could not be converted to a molecule. Returning a random fingerprint.")
-            return np.random.randint(0, 2, fpSize, dtype='uint8')
+            logger.warning(f"SMILES '{smiles}' could not be converted to a molecule. Skipping.")
+            return None
+
         fp = rdFingerprintGenerator.GetMorganGenerator(radius=radius, fpSize=fpSize).GetFingerprint(mol)
 
         if to_numpy:
             fp_arr = np.zeros((fpSize,), dtype='uint8')
-            DataStructs.ConvertToNumpyArray(fp, fp_arr) 
-            return fp_arr 
-
+            DataStructs.ConvertToNumpyArray(fp, fp_arr)
+            return fp_arr
 
         return fp
 
