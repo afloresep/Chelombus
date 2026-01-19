@@ -8,6 +8,8 @@ Reference:
         year = {2017},
     }
 """
+import joblib
+from pathlib import Path
 from typing import Type
 import numpy as np
 import pqkmeans
@@ -36,12 +38,12 @@ class PQKMeans:
 
     def __init__(
         self,
-        encoder: Type[PQEncoder],
+        encoder: PQEncoder,
         k: int,
         iteration: int = 20,
         verbose: bool = False
     ):
-        if not encoder.encoder_is_trained:
+        if not encoder.encoder_is_trained: # type: ignore
             raise ValueError("Encoder must be trained before clustering")
 
         self.encoder = encoder
@@ -88,3 +90,19 @@ class PQKMeans:
             Cluster labels of shape (n_samples,)
         """
         return self.cluster.fit_predict(X)
+
+    @property
+    def is_trained(self) -> bool:
+        return bool(self.encoder.encoder_is_trained) # type: ignore
+
+    def save(self, path: str | Path) -> None:
+        path = Path(path)
+        joblib.dump(self, path)
+
+    @classmethod
+    def load(cls, path: str | Path) -> "PQKMeans":
+        path = Path(path)
+        obj = joblib.load(path)
+        if not isinstance(obj, cls):
+            raise TypeError(f"Expected {cls.__name__}, got {type(obj).__name__}")
+        return obj
