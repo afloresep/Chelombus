@@ -2,6 +2,8 @@ import numpy as np
 from .encoder_base import PQEncoderBase
 from tqdm import tqdm
 from sklearn.cluster import KMeans
+from pathlib import Path
+import joblib
 
 class PQEncoder(PQEncoderBase):
     """
@@ -37,8 +39,9 @@ class PQEncoder(PQEncoderBase):
         Instead we store the K' centroids of all the subquantizers (k' · m). We can later simulate the full 
         codebook by combining the centroids from each subquantizer. 
         """
+    @property
+    def is_trained(self) -> bool: return self.encoder_is_trained
 
-        
     def fit(self, X_train:np.array, verbose:int=1, **kwargs)->None:
         """ KMeans fitting of every subvector matrix from the X_train matrix. Populates 
         the codebook by storing the cluster centers of every subvector
@@ -194,3 +197,35 @@ class PQEncoder(PQEncoderBase):
 
         if round: return X_inversed.astype(int)
         else: return X_inversed
+        
+
+    def save(self, path: str | Path) -> None:
+        path = Path(path)
+        payload = {
+            "version": 1,
+            "init": {"k": self.k, "m": self.m, "iterations": self.iterations},
+            "state": {
+                "encoder_is_trained": self.encoder_is_trained,
+                "og_D": getattr(self, "og_D", None),
+                "D_subvector": getattr(self, "D_subvector", None),
+                "codewords": getattr(self, "codewords", None),
+                "pq_trained": self.pq_trained,  # optional
+            },
+        }
+        joblib.dump(payload, path)
+
+    @classmethod
+    def load(cls, path: str | Path) -> "PQEncoder":
+        path = Path(path)
+        payload = joblib.load(path)
+
+        if isinstance(payload, cls): return payload
+
+        obj = cls(**payload["init"])
+        state = payload["state"]
+        obj.encoder_is_trained = state["encoder_is_trained"]
+        obj.og_D = state["og_D"]
+        obj.D_subvector = state["D_subvector"]
+        obj.codewords = state["codewords"]
+        obj.pq_trained = state.get("pq_trained", [])
+        return obj
