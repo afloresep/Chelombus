@@ -78,7 +78,7 @@ class PQKMeans:
         Returns:
             Cluster labels of shape (n_samples,)
         """
-        return self.cluster.predict(X)
+        return np.array(self.cluster.predict(X))
 
     def fit_predict(self, X: np.ndarray) -> np.ndarray:
         """Fit the model and predict cluster labels in one step.
@@ -89,7 +89,7 @@ class PQKMeans:
         Returns:
             Cluster labels of shape (n_samples,)
         """
-        return self.cluster.fit_predict(X)
+        return np.array(self.cluster.fit_predict(X))
 
     @property
     def is_trained(self) -> bool:
