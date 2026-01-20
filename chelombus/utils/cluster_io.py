@@ -499,14 +499,17 @@ def sample_from_cluster(
     path = _validate_results_dir(results_dir)
     glob_pattern = str(path / "*.parquet")
 
-    # DuckDB uses USING SAMPLE for sampling
-    seed_clause = f"REPEATABLE ({random_state})" if random_state else ""
+    # Use setseed() for reproducibility when random_state is provided
+    if random_state is not None:
+        duckdb.query(f"SELECT setseed({random_state / 2**31})")
 
+    # Use ORDER BY RANDOM() for sampling, which is more portable
     query = f"""
         SELECT *
         FROM '{glob_pattern}'
         WHERE cluster_id = {cluster_id}
-        USING SAMPLE {n} {seed_clause}
+        ORDER BY RANDOM()
+        LIMIT {n}
     """
 
     return duckdb.query(query).df()
