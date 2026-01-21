@@ -49,7 +49,7 @@ def format_time(seconds):
     minutes, seconds = divmod(rem, 60)
     return f"{int(hours)} h; {int(minutes)}min; {seconds:.2f} s" 
 
-def save_chunk(fp_chunk: np.ndarray, output_dir: str, chunk_index: int,
+def save_chunk(fp_chunk: np.ndarray | pd.DataFrame, output_dir: str, chunk_index: int,
                   file_format: str = 'npy', name:str="fingerprints_chunk", **kwargs) -> str:
     """
     Save a chunk of fingerprint data to a file in the specified format.
