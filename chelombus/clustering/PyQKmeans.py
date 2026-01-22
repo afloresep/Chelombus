@@ -50,12 +50,24 @@ class PQKMeans:
         self.k = k
         self.iteration = iteration
         self.verbose = verbose
-        self.cluster = pqkmeans.clustering.PQKMeans(
+        self.trained = False
+        self._cluster = pqkmeans.clustering.PQKMeans(
             encoder=encoder,
             k=k,
-            iteration=iteration,
             verbose=verbose
         )
+
+    @property
+    def cluster_centers_(self) -> np.ndarray:
+        """Get cluster centers (PQ codes of shape (k, m))."""
+        return np.array(self._cluster.cluster_centers_)
+
+    @cluster_centers_.setter
+    def cluster_centers_(self, centers: np.ndarray) -> None:
+        """Set cluster centers and mark as trained."""
+        centers_uint8 = np.array(centers).astype(np.uint8)
+        self._cluster._impl.set_cluster_centers(centers_uint8.tolist())
+        self.trained = True
 
     def fit(self, X_train: np.ndarray) -> 'PQKMeans':
         """Fit the PQk-means model to training PQ codes.
@@ -66,7 +78,8 @@ class PQKMeans:
         Returns:
             self
         """
-        self.cluster.fit(X_train)
+        self._cluster.fit(X_train)
+        self.trained = True
         return self
 
     def predict(self, X: np.ndarray) -> np.ndarray:
@@ -78,7 +91,9 @@ class PQKMeans:
         Returns:
             Cluster labels of shape (n_samples,)
         """
-        return np.array(self.cluster.predict(X))
+        if not self.trained: # type: ignore
+            raise ValueError("Must be trained before clustering. Use `.fit()` first")
+        return np.array(self._cluster.predict(X))
 
     def fit_predict(self, X: np.ndarray) -> np.ndarray:
         """Fit the model and predict cluster labels in one step.
@@ -89,11 +104,11 @@ class PQKMeans:
         Returns:
             Cluster labels of shape (n_samples,)
         """
-        return np.array(self.cluster.fit_predict(X))
+        return np.array(self._cluster.fit_predict(X))
 
     @property
     def is_trained(self) -> bool:
-        return bool(self.encoder.encoder_is_trained) # type: ignore
+        return bool(self.trained) # type: ignore
 
     def save(self, path: str | Path) -> None:
         path = Path(path)

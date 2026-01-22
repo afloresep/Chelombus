@@ -21,7 +21,8 @@ def trained_encoder():
     """Create a trained PQEncoder for testing."""
     np.random.seed(42)
     # Create training data: 500 samples, 42 dimensions (like MQN fingerprints)
-    X_train = np.random.rand(500, 42).astype(np.float32)
+    # Use float64 for sklearn compatibility
+    X_train = np.random.rand(500, 42).astype(np.float64)
 
     encoder = PQEncoder(k=32, m=6, iterations=5)  # k=32 for faster tests
     encoder.fit(X_train, verbose=0)
@@ -38,7 +39,8 @@ def untrained_encoder():
 def sample_pq_codes(trained_encoder):
     """Create sample PQ codes using a trained encoder."""
     np.random.seed(123)
-    X = np.random.rand(100, 42).astype(np.float32)
+    # Use float64 to match training dtype
+    X = np.random.rand(100, 42).astype(np.float64)
     return trained_encoder.transform(X, verbose=0)
 
 
@@ -53,7 +55,7 @@ class TestPQKMeansInit:
         assert clusterer.k == 10
         assert clusterer.iteration == 5
         assert clusterer.verbose is False
-        assert clusterer.is_trained is True  # Encoder is trained
+        assert clusterer.encoder.is_trained is True  # Encoder is trained
 
     def test_init_with_untrained_encoder_raises(self, untrained_encoder):
         """Test that initializing with untrained encoder raises ValueError."""
@@ -208,11 +210,12 @@ class TestPQKMeansSaveLoad:
 class TestPQKMeansProperties:
     """Tests for PQKMeans properties."""
 
-    def test_is_trained_property(self, trained_encoder):
+    def test_is_trained_property(self, trained_encoder, sample_pq_codes):
         """Test that is_trained reflects encoder state."""
         clusterer = PQKMeans(trained_encoder, k=5)
-
-        # is_trained should be True because encoder is trained
+        # is_trained should be False because hasn't been trained
+        assert clusterer.is_trained is False
+        clusterer.fit(sample_pq_codes)  # Use proper PQ codes with correct dimensions
         assert clusterer.is_trained is True
 
 
@@ -234,7 +237,7 @@ class TestPQKMeansIntegration:
             cluster_data = center + np.random.randn(n_samples // n_true_clusters, 42) * 10
             data.append(cluster_data)
 
-        X = np.vstack(data).astype(np.float32)
+        X = np.vstack(data).astype(np.float64)
 
         # Encode and cluster
         pq_codes = trained_encoder.transform(X, verbose=0)
@@ -251,7 +254,7 @@ class TestPQKMeansIntegration:
         np.random.seed(42)
 
         # Need enough samples for k clusters
-        X = np.random.rand(1000, 42).astype(np.float32)
+        X = np.random.rand(1000, 42).astype(np.float64)
         pq_codes = trained_encoder.transform(X, verbose=0)
 
         k = 50
