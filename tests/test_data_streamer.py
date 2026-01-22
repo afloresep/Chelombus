@@ -1,8 +1,5 @@
-import os
 import pytest
-from tempfile import TemporaryDirectory
 from pathlib import Path
-from typing import Iterator, List, Optional
 from chelombus.streamer.data_streamer import DataStreamer
 
 
