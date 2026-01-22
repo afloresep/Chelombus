@@ -88,7 +88,7 @@ class FingerprintCalculator:
             'mqn': _calculate_mqn_fp,
         }
 
-    def FingerprintFromSmiles(self, smiles:List, fp:str, nprocesses:int = os.cpu_count(), **params) -> npt.NDArray:
+    def FingerprintFromSmiles(self, smiles:List | str, fp:str, nprocesses:int = os.cpu_count(), **params) -> npt.NDArray:
         """
         Generate fingerprints for a list of SMILES strings in parallel.
 
