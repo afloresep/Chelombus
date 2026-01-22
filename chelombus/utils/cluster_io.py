@@ -237,7 +237,6 @@ def export_all_clusters(
     results_dir: Union[str, Path],
     output_dir: Union[str, Path],
     format: str = "parquet",
-    batch_size: int = 1000,
 ) -> dict[int, int]:
     """Export all clusters to individual files using partitioned writes.
 
