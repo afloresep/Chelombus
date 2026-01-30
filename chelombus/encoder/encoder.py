@@ -4,7 +4,7 @@ from tqdm import tqdm
 from sklearn.cluster import KMeans
 from pathlib import Path
 import joblib
-
+from numpy.typing import NDArray
 class PQEncoder(PQEncoderBase):
     """
     Class to encode high-dimensional vectors into PQ-codes.
@@ -42,7 +42,7 @@ class PQEncoder(PQEncoderBase):
     @property
     def is_trained(self) -> bool: return self.encoder_is_trained
 
-    def fit(self, X_train:np.array, verbose:int=1, **kwargs)->None:
+    def fit(self, X_train:NDArray, verbose:int=1, **kwargs)->None:
         """ KMeans fitting of every subvector matrix from the X_train matrix. Populates 
         the codebook by storing the cluster centers of every subvector
 
@@ -69,7 +69,7 @@ class PQEncoder(PQEncoderBase):
         
         iterable = range(self.m)
         if verbose > 0: 
-            iterable = tqdm(iterable, desc='Training PQ-codes', total=self.m)    
+            iterable = tqdm(iterable, desc='Training PQ-encoder', total=self.m)    
             
         # Divide the input vector into m subvectors 
         subvector_dim = int(D / self.m) 
@@ -88,7 +88,7 @@ class PQEncoder(PQEncoderBase):
         del X_train # remove initial training data from memory
 
 
-    def transform(self, X:np.array, verbose:int=1, **kwargs) -> np.array:
+    def transform(self, X:NDArray, verbose:int=1, **kwargs) -> NDArray:
         """
         Transforms the input matrix X into its PQ-codes.
 
@@ -134,7 +134,7 @@ class PQEncoder(PQEncoderBase):
         # Return pq_codes (labels of the centroids for every subvector from the X_test data)
         return pq_codes
 
-    def fit_transform(self, X:np.array, verbose:int=1, **kwargs) -> np.array:
+    def fit_transform(self, X:NDArray, verbose:int=1, **kwargs) -> NDArray:
         """Fit and transforms the input matrix `X` into its PQ-codes
 
         The encoder is trained on the matrix and then for each sample in X,
@@ -158,7 +158,7 @@ class PQEncoder(PQEncoderBase):
 
 
     def inverse_transform(self, 
-                          pq_codes:np.array, 
+                          pq_codes:NDArray, 
                           binary=False, 
                           round=True):
         """ Inverse transform. From PQ-code to the original vector. 
