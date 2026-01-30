@@ -379,6 +379,7 @@ def get_cluster_stats(
 
 def get_cluster_ids(
     results_dir: Union[str, Path],
+    cluster_id_column_name: str,
 ) -> List[int]:
     """Get list of all cluster IDs in the results.
 
@@ -399,9 +400,9 @@ def get_cluster_ids(
     glob_pattern = str(path / "*.parquet")
 
     query = f"""
-        SELECT DISTINCT cluster_id
+        SELECT DISTINCT {_quote_identifier(cluster_id_column_name)} 
         FROM '{glob_pattern}'
-        ORDER BY cluster_id
+        ORDER BY {_quote_identifier(cluster_id_column_name)}
     """
 
     result = duckdb.query(query).fetchall()
@@ -433,6 +434,7 @@ def query_clusters_batch(
     results_dir: Union[str, Path],
     cluster_ids: List[int],
     columns: Optional[List[str]] = None,
+    cluster_column: str= 'cluster_id'
 ) -> "pd.DataFrame":
     """Query molecules from multiple clusters at once.
 
@@ -453,6 +455,7 @@ def query_clusters_batch(
     """
     _check_duckdb_available()
     import duckdb
+    quoted_cluster_column = _quote_identifier(cluster_column)
 
     path = _validate_results_dir(results_dir)
     glob_pattern = str(path / "*.parquet")
@@ -463,7 +466,7 @@ def query_clusters_batch(
     query = f"""
         SELECT {col_str}
         FROM '{glob_pattern}'
-        WHERE cluster_id IN ({ids_str})
+        WHERE {quoted_cluster_column} IN ({ids_str})
     """
 
     return duckdb.query(query).df()
