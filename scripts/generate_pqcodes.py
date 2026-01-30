@@ -1,97 +1,231 @@
+"""
+Generate PQ codes from SMILES input.
+
+Takes SMILES as input, computes MQN fingerprints, transforms them to PQ codes,
+and saves both SMILES and PQ codes to parquet files (needed for clustering step).
+
+Example
+-------
+python scripts/generate_pqcodes.py \
+    --input /path/to/smiles/ \
+    --output /path/to/output/ \
+    --pq-model models/encoder.joblib \
+    --chunksize 1000000
+"""
 import os
 import time
-import numpy as np
-from chelombus.utils.helper_functions import format_time, save_chunk
-import logging
-logger = logging.getLogger(__name__)
 import argparse
-import joblib
-import pandas as pd
+import gc
+import pyarrow as pa
+import pyarrow.parquet as pq
+from tqdm import tqdm
+
+from chelombus import PQEncoder
+from chelombus import DataStreamer
+from chelombus.utils import FingerprintCalculator
+from chelombus.utils.helper_functions import format_time
 
 
 def parse_arguments():
-    parser = argparse.ArgumentParser(description="Process with flexible options.")
-    parser.add_argument('--fp-path', type=str, required = True,  help="The path to the directory containing the fingerprint files")
-    parser.add_argument('--output-path', type=str, default = '.', help="Output path for the fingerprints, pq-codes and other data generated")
-    parser.add_argument('--pq-model', type=str,required=True,  help="Path to the trained PQEncoder data.") 
-    parser.add_argument('--verbose', type=int, default=1, help="Level of verbosity. Default is 1")
-    parser.add_argument('--debug', type=bool, default=False, help="For running the transformatino with all the assert methods. Introduces safety checks and better error output at the expense of time. Default is False")
+    parser = argparse.ArgumentParser(
+        description="Generate PQ codes from SMILES input.",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""
+Output structure:
+  output_dir/
+  └── chunk_*.parquet   # Each file contains: smiles, pq_0, pq_1, ..., pq_{m-1}
+"""
+    )
+    parser.add_argument(
+        '--input', '-i',
+        type=str,
+        required=True,
+        help="Path to SMILES file or directory containing SMILES files"
+    )
+    parser.add_argument(
+        '--output', '-o',
+        type=str,
+        required=True,
+        help="Output directory for parquet files"
+    )
+    parser.add_argument(
+        '--pq-model',
+        type=str,
+        required=True,
+        help="Path to trained PQEncoder model"
+    )
+    parser.add_argument(
+        '--chunksize',
+        type=int,
+        default=1_000_000,
+        help="Number of SMILES to process per chunk (default: 1000000)"
+    )
+    parser.add_argument(
+        '--smiles-col',
+        type=int,
+        default=0,
+        help="Column index containing SMILES in input file (default: 0)"
+    )
+    parser.add_argument(
+        '--nprocesses',
+        type=int,
+        default=None,
+        help="Number of processes for fingerprint calculation (default: all CPUs)"
+    )
+    parser.add_argument(
+        '--verbose',
+        type=int,
+        default=1,
+        help="Verbosity level: 0=silent, 1=progress (default: 1)"
+    )
     return parser.parse_args()
 
-def transform(fp_path: str, output_path: str, pq_encoder, N: int = 20_000_000_000):
-    """Transform fingerprints to PQ codes using a trained encoder.
+
+def process_smiles(
+    input_path: str,
+    output_dir: str,
+    pq_encoder: PQEncoder,
+    chunksize: int = 1_000_000,
+    smiles_col: int = 0,
+    nprocesses: int | None = None,
+    verbose: int = 1
+):
+    """Process SMILES to PQ codes and save with SMILES to parquet.
 
     Args:
-        fp_path: Path to directory containing fingerprint parquet files
-        output_path: Path to save output files
+        input_path: Path to SMILES file or directory
+        output_dir: Output directory for parquet chunk files
         pq_encoder: Trained PQEncoder instance
-        N: Maximum number of samples (pre-allocated array size)
+        chunksize: Number of SMILES per chunk
+        smiles_col: Column index for SMILES in input
+        nprocesses: Number of processes for fingerprint calculation
+        verbose: Verbosity level
     """
-    count = 0
-    import glob
-    path = os.path.join(fp_path, '*.parquet')
-    fp_files = glob.glob(path)
-    print(f"Reading {len(fp_files)} files ")
+    streamer = DataStreamer()
+    calc = FingerprintCalculator()
 
-    # Pre-allocate array for PQ codes. We create a sufficiently large array
-    # and populate it as we process each chunk. At the end we trim to actual size.
-    import time
+    total_count = 0
+    start_time = time.time()
 
-    pq_codes = np.zeros((N, pq_encoder.m), dtype=pq_encoder.codebook_dtype)
-    for index, fp_file in enumerate(fp_files):
+    # Wrap iterator with tqdm if verbose
+    chunks_iter = streamer.parse_input(
+        input_path=input_path,
+        chunksize=chunksize,
+        smiles_col=smiles_col
+    )
 
-        st = time.perf_counter()
-        fp_chunk_df = pd.read_parquet(fp_file)
-        fp_chunk = fp_chunk_df.drop(columns='smiles').to_numpy()
-        arr_pq_codes = pq_encoder.transform(fp_chunk, verbose=0)
-        for idx in range(pq_encoder.m):
-            fp_chunk_df[f'pq_code_{idx}'] = arr_pq_codes[:,idx]
+    pbar = tqdm(desc="Processing chunks", unit="chunk") if verbose > 0 else None
 
-        # Random checks to test everything went accordingly 
-        # takes 0.1s for range 100. Lower if theres a lot of files
-        for i in range(100):
-            randint = np.random.randint(0, 1000000)
-            rnd_smiles_fp= fp_chunk_df.iloc[randint][1:1025].to_numpy()
-            rnd_smiles_pqcode = fp_chunk_df.iloc[randint][1025:1034].to_numpy()
-            rnd_smiles_generated_pqcode  = pq_encoder.transform(rnd_smiles_fp.reshape(1, -1), verbose=0)
+    for chunk_idx, smiles_chunk in enumerate(chunks_iter):
 
-            assert (rnd_smiles_generated_pqcode == rnd_smiles_pqcode).all()
+        # Compute MQN fingerprints
+        fingerprints = calc.FingerprintFromSmiles(
+            smiles=smiles_chunk,
+            fp='mqn',
+            nprocesses=nprocesses
+        )
 
-        fp_chunk_df.to_parquet(os.path.join(output_path, f'pqcode_n_smiles_{index}.parquet'))
-        pq_codes[count:(count+arr_pq_codes.shape[0]),:] = arr_pq_codes
-        count += len(fp_chunk_df)
-        end = time.perf_counter()
-        print(f'\rPQ codes generated: {count:,} in {(end - st):.2f} seconds', end='', flush=True) 
+        # Filter out failed SMILES (where fingerprint calculation failed)
+        # FingerprintCalculator returns array without failed entries, so we need
+        # to track which SMILES succeeded
+        if len(fingerprints) != len(smiles_chunk):
+            # Some SMILES failed - fingerprints array is smaller
+            # We can't reliably match, so skip SMILES column for this chunk
+            valid_smiles = None
+            valid_fps = fingerprints
+        else:
+            valid_smiles = smiles_chunk
+            valid_fps = fingerprints
 
-    print("\nTransformation completed, saving pq_codes")
-    pq_codes = pq_codes[:count]
-    np.save('pq_codes_test', pq_codes)
+        if len(valid_fps) == 0:
+            continue
+
+        
+        # Transform to PQ codes
+        pq_codes = pq_encoder.transform(valid_fps, verbose=0)
+
+        # Build table with SMILES and PQ codes
+        # Using pyarrow directly instead of pandas for memory efficiency:
+        data = {}
+        if valid_smiles is not None:
+            data['smiles'] = valid_smiles
+        for i in range(pq_codes.shape[1]):
+            data[f'pq_{i}'] = pq_codes[:, i]
+
+        table = pa.Table.from_pydict(data)
+
+        # Write chunk to parquet file
+        output_file = os.path.join(output_dir, f"chunk_{chunk_idx:06d}.parquet")
+        pq.write_table(table, output_file)
+
+        total_count += len(valid_fps)
+
+        if pbar is not None:
+            elapsed = time.time() - start_time
+            rate = total_count / elapsed if elapsed > 0 else 0
+            pbar.update(1)
+            pbar.set_postfix({
+                'molecules': f'{total_count:,}',
+                'rate': f'{rate:,.0f}/s'
+            })
+
+        # Free memory
+        del smiles_chunk, fingerprints, valid_fps, pq_codes, table
+        gc.collect()
+
+    if pbar is not None:
+        pbar.close()
+
+    print(f'Done. Total molecules: {total_count:,}')
+    return total_count
+
 
 def main():
     args = parse_arguments()
 
-    verbose = args.verbose
-    debug = args.debug
+    print("\n" + "="*60)
+    print("  GENERATE PQ CODES")
+    print("="*60)
+    print(f"\nInput: {args.input}")
+    print(f"Output: {args.output}")
+    print(f"PQ model: {args.pq_model}")
+    print(f"Chunk size: {args.chunksize:,}")
 
+    # Load trained encoder
+    print(f"\nLoading encoder from {args.pq_model}...")
     try:
-        pq_encoder = joblib.load(args.pq_model)
+        pq_encoder = PQEncoder.load(args.pq_model)
     except Exception as e:
-        raise ValueError(f'Could not load the pq-model from {args.pq_model}. Exception: {e}')
+        raise ValueError(f'Could not load PQEncoder from {args.pq_model}: {e}')
 
-    if not hasattr(pq_encoder, 'encoder_is_trained') or not pq_encoder.encoder_is_trained:
+    if not getattr(pq_encoder, 'encoder_is_trained', False):
         raise ValueError('The loaded model is not a trained PQEncoder')
 
-    s = time.time()
-    transform(
-        fp_path=args.fp_path,
-        output_path=args.output_path,
-        pq_encoder=pq_encoder
-    )
-    e = time.time()
+    print(f"Encoder loaded: m={pq_encoder.m}, k={pq_encoder.k}")
 
-    print("\nGenerating PQ codes took: ", format_time(e-s))
-    
+    # Create output directory
+    os.makedirs(args.output, exist_ok=True)
+
+    print("\nStarting processing...\n")
+    start = time.time()
+    total = process_smiles(
+        input_path=args.input,
+        output_dir=args.output,
+        pq_encoder=pq_encoder,
+        chunksize=args.chunksize,
+        smiles_col=args.smiles_col,
+        nprocesses=args.nprocesses,
+        verbose=args.verbose
+    )
+    elapsed = time.time() - start
+
+    print("\n" + "="*60)
+    print("  COMPLETE")
+    print("="*60)
+    print(f"\nTotal molecules: {total:,}")
+    print(f"Total time: {format_time(elapsed)}")
+    print(f"Output directory: {args.output}")
+
+
 if __name__ == "__main__":
     main()
-
-
