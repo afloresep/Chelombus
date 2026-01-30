@@ -12,7 +12,7 @@ from rdkit.Chem import rdFingerprintGenerator, rdMolDescriptors
 logger = logging.getLogger(__name__)
 
 
-def _calculate_mqn_fp(smiles: str, **params) -> np.array:
+def _calculate_mqn_fp(smiles: str, **params) -> npt.NDArray | None:
     """Calculate MQN fingerprint for a single SMILES string."""
     mol = Chem.MolFromSmiles(smiles)
     if mol is None:
@@ -28,7 +28,7 @@ def _calculate_mqn_fp(smiles: str, **params) -> np.array:
         return None
     
 
-def _calculate_morgan_fp(smiles: str, **params) -> np.array:
+def _calculate_morgan_fp(smiles: str, **params) -> npt.NDArray | None:
     """
     Calculate a Morgan fingerprint for a single SMILES string.
 
@@ -88,7 +88,7 @@ class FingerprintCalculator:
             'mqn': _calculate_mqn_fp,
         }
 
-    def FingerprintFromSmiles(self, smiles:List | str, fp:str, nprocesses:int = os.cpu_count(), **params) -> npt.NDArray:
+    def FingerprintFromSmiles(self, smiles:List | str, fp:str, nprocesses:int | None = os.cpu_count(), **params) -> npt.NDArray:
         """
         Generate fingerprints for a list of SMILES strings in parallel.
 
