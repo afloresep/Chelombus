@@ -10,7 +10,6 @@ Reference:
 """
 import joblib
 from pathlib import Path
-from typing import Type
 import numpy as np
 import pqkmeans
 from chelombus import PQEncoder
@@ -104,6 +103,7 @@ class PQKMeans:
         Returns:
             Cluster labels of shape (n_samples,)
         """
+        self.trained = True
         return np.array(self._cluster.fit_predict(X))
 
     @property

@@ -77,7 +77,7 @@ def _calculate_morgan_fp(smiles: str, **params) -> npt.NDArray | None:
 class FingerprintCalculator:
     """
     A class to compute molecular fingerprints from a list of SMILES strings.
-    Currently, only the 'morgan' fingerprint type is supported.
+    Currently, only the 'morgan' and 'mqn' fingerprints type are supported.
     """
     def __init__(self):
         
