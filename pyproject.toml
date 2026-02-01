@@ -34,10 +34,10 @@ dependencies = [
 
 [project.optional-dependencies]
 clustering = ["pqkmeans"]
-visualization = ["tmap-viz @ git+https://github.com/afloresep/silicon-tmap-compatible.git"]
+visualization = ["tmap-silicon>=1.0.19"]
 io = ["pyarrow>=10.0.0", "duckdb>=0.9.0"]
 dev = ["pytest>=7.0.0", "pytest-cov>=3.0.0"]
-all = ["pqkmeans", "tmap-viz @ git+https://github.com/afloresep/silicon-tmap-compatible.git", "pyarrow>=10.0.0", "duckdb>=0.9.0"]
+all = ["pqkmeans", "tmap-silicon>=1.0.19", "pyarrow>=10.0.0", "duckdb>=0.9.0"]
 
 [project.urls]
 Homepage = "https://github.com/afloresep/chelombus"
