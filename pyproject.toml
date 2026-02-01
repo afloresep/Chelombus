@@ -11,13 +11,13 @@ license = {text = "MIT"}
 authors = [
   { name = "Alejandro Flores", email = "afloresep01@gmail.com" }
 ]
-requires-python = ">=3.8"
+requires-python = ">=3.9"
 classifiers = [
   "Programming Language :: Python :: 3",
-  "Programming Language :: Python :: 3.8",
   "Programming Language :: Python :: 3.9",
   "Programming Language :: Python :: 3.10",
   "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
   "License :: OSI Approved :: MIT License",
   "Operating System :: OS Independent",
   "Intended Audience :: Science/Research",
@@ -34,10 +34,10 @@ dependencies = [
 
 [project.optional-dependencies]
 clustering = ["pqkmeans"]
-visualization = ["tmap>=1.0.0", "faerun>=0.4.0"]
+visualization = ["tmap-viz @ git+https://github.com/afloresep/silicon-tmap-compatible.git"]
 io = ["pyarrow>=10.0.0", "duckdb>=0.9.0"]
 dev = ["pytest>=7.0.0", "pytest-cov>=3.0.0"]
-all = ["pqkmeans", "tmap>=1.0.0", "faerun>=0.4.0", "pyarrow>=10.0.0", "duckdb>=0.9.0"]
+all = ["pqkmeans", "tmap-viz @ git+https://github.com/afloresep/silicon-tmap-compatible.git", "pyarrow>=10.0.0", "duckdb>=0.9.0"]
 
 [project.urls]
 Homepage = "https://github.com/afloresep/chelombus"
