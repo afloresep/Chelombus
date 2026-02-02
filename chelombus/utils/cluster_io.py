@@ -379,7 +379,7 @@ def get_cluster_stats(
 
 def get_cluster_ids(
     results_dir: Union[str, Path],
-    cluster_id_column_name: str,
+    cluster_id_column_name: str = 'cluster_id',
 ) -> List[int]:
     """Get list of all cluster IDs in the results.
 
