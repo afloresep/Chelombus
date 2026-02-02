@@ -34,15 +34,18 @@ dependencies = [
 
 [project.optional-dependencies]
 clustering = ["pqkmeans"]
-visualization = ["tmap-silicon>=1.0.19"]
+visualization = ["tmap-silicon>=1.0.19", "pandarallel>=1.6.0", "faerun>=0.4.0"]
 io = ["pyarrow>=10.0.0", "duckdb>=0.9.0"]
 dev = ["pytest>=7.0.0", "pytest-cov>=3.0.0"]
-all = ["pqkmeans", "tmap-silicon>=1.0.19", "pyarrow>=10.0.0", "duckdb>=0.9.0"]
+all = ["pqkmeans", "tmap-silicon>=1.0.19", "pandarallel>=1.6.0", "faerun>=0.4.0", "pyarrow>=10.0.0", "duckdb>=0.9.0"]
 
 [project.urls]
 Homepage = "https://github.com/afloresep/chelombus"
 Documentation = "https://chelombus.gdb.tools"
 Repository = "https://github.com/afloresep/chelombus"
+
+[project.scripts]
+chelombus-tmap = "chelombus.utils.visualization:main"
 
 [tool.setuptools.packages.find]
 where = ["."]
