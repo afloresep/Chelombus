@@ -73,11 +73,10 @@ def _validate_results_dir(results_dir: Union[str, Path]) -> Path:
 
 
 def _quote_identifier(identifier: str) -> str:
-    """Quote SQL identifiers for DuckDB, escaping internal quotes."""
     if identifier.startswith('"') and identifier.endswith('"'):
         return identifier
-    return f'"{identifier.replace("\"", "\"\"")}"'
-
+    escaped = identifier.replace('"', '""')
+    return f'"{escaped}"'
 
 def query_cluster(
     results_dir: Union[str, Path],
