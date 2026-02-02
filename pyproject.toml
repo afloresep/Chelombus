@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "chelombus"
-version = "0.1.0"
+version = "0.2.0"
 description = "Billion-scale molecular clustering and visualization using Product Quantization and nested TMAPs."
 readme = "README.md"
 license = {text = "MIT"}
