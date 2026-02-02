@@ -48,6 +48,10 @@ pip install -e ".[visualization]"
 pip install -e ".[all]"
 ```
 
+## Platform Notes
+
+**Apple Silicon (M1/M2/M3)**: The `pqkmeans` library is not currently supported on Apple Silicon Macs. My plan is to rewrite pqkmeans with Silicon and GPU support but that's for a future release... For now, clustering functionality requires an x86_64 system.
+
 ## Quick Start
 
 ```python
@@ -88,15 +92,6 @@ chelombus/
 └── tests/                # Unit tests
 ```
 
-## Pipeline Stages
-
-| Stage | Input | Output | Time (9.6B molecules) |
-|-------|-------|--------|----------------------|
-| MQN Calculation | SMILES | 42D vectors | ~hours (streaming) |
-| PQ Encoding | MQN vectors | 6-byte codes | ~3 hours |
-| PQk-means Training | PQ codes | Cluster model | ~2 days |
-| Cluster Assignment | PQ codes | Labels | ~4 hours |
-| Primary TMAP | Representatives | Visualization | ~1 minute |
 
 ## Documentation
 
@@ -120,8 +115,8 @@ If you use Chelombus in your research, please cite:
 
 ```bibtex
 @article{chelombus2025,
-  title={Nested Tree-maps to visualize Billions of Molecules},
-  author={Flores Sep{\'u}lveda, Alejandro and Reymond, Jean-Louis},
+  title={Nested TMAPs to visualize Billions of Molecules},
+  author={Flores Sepulveda, Alejandro and Reymond, Jean-Louis},
   journal={},
   year={2025}
 }
