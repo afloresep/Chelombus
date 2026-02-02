@@ -26,26 +26,18 @@ SMILES → MQN Fingerprints → PQ Encoding → PQk-means Clustering → Nested 
 
 ## Installation
 
+### From PyPI (recommended)
+
 ```bash
-# Clone the repository
+pip install chelombus
+```
+
+### From Source
+
+```bash
 git clone https://github.com/afloresep/chelombus.git
 cd chelombus
-
-# Create virtual environment
-python -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
-
-# Install with core dependencies
 pip install -e .
-
-# Install with clustering support
-pip install -e ".[clustering]"
-
-# Install with visualization support
-pip install -e ".[visualization]"
-
-# Install everything
-pip install -e ".[all]"
 ```
 
 ## Platform Notes

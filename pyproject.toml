@@ -30,14 +30,16 @@ dependencies = [
   "rdkit>=2022.03",
   "tqdm>=4.60.0",
   "scikit-learn>=1.0.0",
+  "tmap-silicon>=1.0.19",
+  "pandarallel>=1.6.0",
+  "faerun>=0.4.0",
+  "pyarrow>=10.0.0",
+  "duckdb>=0.9.0",
+  "pqkmeans",
 ]
 
 [project.optional-dependencies]
-clustering = ["pqkmeans"]
-visualization = ["tmap-silicon>=1.0.19", "pandarallel>=1.6.0", "faerun>=0.4.0"]
-io = ["pyarrow>=10.0.0", "duckdb>=0.9.0"]
 dev = ["pytest>=7.0.0", "pytest-cov>=3.0.0"]
-all = ["pqkmeans", "tmap-silicon>=1.0.19", "pandarallel>=1.6.0", "faerun>=0.4.0", "pyarrow>=10.0.0", "duckdb>=0.9.0"]
 
 [project.urls]
 Homepage = "https://github.com/afloresep/chelombus"
