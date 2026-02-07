@@ -45,7 +45,7 @@ except ImportError:
     query_clusters_batch = _cluster_io_not_available
     sample_from_cluster = _cluster_io_not_available
 
-__version__ = "0.1.0"
+__version__ = "0.2.0"
 __all__ = [
     # Core classes
     "DataStreamer",
