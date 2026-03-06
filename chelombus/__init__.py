@@ -12,8 +12,10 @@ from .utils.helper_functions import save_chunk, format_time
 # Optional imports - only available if dependencies are installed
 try:
     from .clustering.PyQKmeans import PQKMeans
-except ImportError:
-    PQKMeans = None  # pqkmeans not installed
+except ImportError as e:
+    import warnings
+    warnings.warn(f"PQKMeans not available: {e}")
+    PQKMeans = None  # pqkmeans or numba not installed
 
 # Cluster I/O utilities (require duckdb)
 try:
