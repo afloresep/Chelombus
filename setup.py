@@ -16,7 +16,7 @@ setup(
         "scikit-learn>=1.0.0",
     ],
     extras_require={
-        "clustering": ["pqkmeans"],
+        "clustering": ["pqkmeans", "numba>=0.57.0"],
         "visualization": ["tmap>=1.0.0", "faerun>=0.4.0"],
         "io": ["pyarrow>=10.0.0", "duckdb>=0.9.0"],
         "dev": ["pytest>=7.0.0", "pytest-cov>=3.0.0"],
