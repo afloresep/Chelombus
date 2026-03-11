@@ -85,6 +85,37 @@ chelombus/
 ```
 
 
+## Choosing k (Number of Clusters)
+
+The `scripts/select_k.py` script sweeps over k values on a subsample to help pick the right number of clusters. It supports **checkpointing**, if interrupted, rerun the same command and it resumes from where it left off.
+
+```bash
+python scripts/select_k.py \
+    --pq-codes data/pq_codes.npy \
+    --encoder models/encoder.joblib \
+    --n-subsample 10000000 \
+    --k-values 10000 25000 50000 100000 200000 \
+    --iterations 10 \
+    --output results/k_selection.csv \
+    --plot results/k_selection.png
+```
+
+**Results on 100M Enamine REAL molecules** (AMD Ryzen 7, 64GB RAM):
+
+| k | Avg Distance | Empty Clusters | Median Cluster Size | Fit Time |
+|---:|---:|---:|---:|---:|
+| 10,000 | 3.65 | 6.8% | 8,945 | 1.3 h |
+| 25,000 | 2.74 | 13.3% | 3,673 | 3.1 h |
+| 50,000 | 2.17 | 19.6% | 1,876 | 6.2 h |
+| 100,000 | 1.69 | 26.6% | 956 | 12.6 h |
+| 200,000 | 1.30 | 34.7% | 492 | 26.4 h |
+
+**Guidelines:**
+- **k = 50,000** is a good default — under 20% empty clusters, median size ~1,900, and the avg distance improvement starts plateauing beyond this point.
+- **k = 100,000** if you need tighter clusters and can tolerate ~27% empty clusters.
+- Beyond 200K, over a third of clusters are empty — diminishing returns.
+- Fit time scales linearly with both n and k (e.g., 1B molecules at k=50K ≈ 2.6 days).
+
 ## Documentation
 
 - **Tutorial**: See `examples/tutorial.ipynb` for a hands-on introduction
