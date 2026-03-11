@@ -118,9 +118,10 @@ python scripts/select_k.py \
 
 ## Documentation
 
+- **Full docs**: [https://chelombus.gdb.tools](https://chelombus.gdb.tools)
 - **Tutorial**: See `examples/tutorial.ipynb` for a hands-on introduction
 - **Large-scale example**: See `examples/enamine_1B_clustering.ipynb`
-- **API Reference**: Generated from docstrings using Sphinx (see `docs/`)
+- **API Reference**: See `docs/api.md` or the hosted docs
 
 ## Testing
 

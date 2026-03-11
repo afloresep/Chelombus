@@ -153,7 +153,6 @@ def main():
     args = parse_args()
     rng = np.random.default_rng(args.seed)
     n_cores = os.cpu_count()
-    # ── Load encoder ──────────────────────────────────────────────────────
     print(f"Loading encoder from {args.encoder} ...")
     try:
         encoder = PQEncoder.load(args.encoder)
@@ -164,7 +163,6 @@ def main():
     m = encoder.m
     print(f"  m={m} subvectors, k'={encoder.k} codewords\n")
 
-    # ── Load or generate PQ codes ─────────────────────────────────────────
     if args.pq_codes is not None:
         clusterer = PQKMeans.load('/home/afloresep/work/Chelombus/models/paper_clusterer.joblib')
         encoder = PQEncoder.load('/home/afloresep/work/Chelombus/models/paper_encoder.joblib')
@@ -199,7 +197,7 @@ def main():
         print(f"No --pq-codes provided, generating {n_sub:,} random PQ codes\n")
         pq_codes = rng.integers(0, 256, size=(n_sub, m), dtype=np.uint8)
 
-    # ── Precompute distance tables ────────────────────────────────────────
+    # Precompute distance tables 
     dtables = _build_distance_tables(encoder.codewords)
 
     # Numba warmup
@@ -207,7 +205,7 @@ def main():
     _dummy_centers = rng.integers(0, 256, size=(10, m), dtype=np.uint8)
     _ = _predict_with_inertia(pq_codes[:100], _dummy_centers, dtables)
 
-    # ── Load checkpoint if exists ────────────────────────────────────────
+    # Load checkpoint if exist
     k_values = sorted(args.k_values)
     results = []
     completed_ks = set()
@@ -235,7 +233,7 @@ def main():
                   f"{sorted(completed_ks)}")
             print(f"Remaining: {[k for k in k_values if k not in completed_ks]}\n")
 
-    # ── Sweep over k values ───────────────────────────────────────────────
+    # Sweep over k values 
     print(f"{'k':>10}  {'fit':>8}  {'predict':>8}  {'inertia':>14}  "
           f"{'avg_dist':>9}  {'empty%':>7}  {'size_med':>9}  {'size_std':>9}")
     print("-" * 90)
@@ -278,7 +276,7 @@ def main():
               f"{metrics['avg_dist']:>9.3f}  {metrics['pct_empty']:>6.1f}%  "
               f"{metrics['cluster_size_median']:>9.0f}  {metrics['cluster_size_std']:>9.0f}")
 
-        # ── Checkpoint: append to CSV after each k ────────────────────────
+        # Checkpoint: append to CSV after each k 
         write_header = not os.path.exists(args.output) or os.path.getsize(args.output) == 0
         with open(args.output, "a", newline="") as f:
             writer = csv.DictWriter(f, fieldnames=metrics.keys())
@@ -287,7 +285,7 @@ def main():
             writer.writerow(metrics)
         print(f"           checkpoint saved to {args.output}")
 
-    # ── Final plot (uses all results including checkpoint) ────────────────
+    # Final plot (uses all results including checkpoint) 
     if results:
         # Sort by k for consistent plotting
         results.sort(key=lambda r: int(r["k"]))
