@@ -21,6 +21,7 @@ SMILES → MQN Fingerprints → PQ Encoding → PQk-means Clustering → Nested 
 **Key Features**:
 - **Scalability**: Stream billions of molecules without loading everything into memory
 - **Efficiency**: Compress 42-dimensional MQN vectors to 6-byte PQ codes (28x compression)
+- **GPU acceleration**: Optional CUDA support for PQ encoding and cluster assignment (~25x speedup)
 - **Visualization**: Navigate from global overview to individual molecules in two clicks
 - **Accessibility**: Runs on commodity hardware (tested: AMD Ryzen 7, 64GB RAM)
 
@@ -43,6 +44,52 @@ pip install -e .
 ## Platform Notes
 
 **Apple Silicon (M1/M2/M3)**: The `pqkmeans` library is not currently supported on Apple Silicon Macs. My plan is to rewrite pqkmeans with Silicon and GPU support but that's for a future release... For now, clustering functionality requires an x86_64 system.
+
+## GPU Acceleration
+
+Both `PQEncoder.transform()` and `PQKMeans.predict()` support optional GPU acceleration via the `device` parameter. When a CUDA GPU is available, `device='auto'` (the default) uses the GPU transparently; otherwise it falls back to CPU.
+
+**Requirements**: `torch` and `triton` (both installed with `pip install torch`).
+
+```python
+encoder = PQEncoder.load('encoder.joblib')
+clusterer = PQKMeans.load('clusterer.joblib')
+
+# GPU is used automatically when available
+pq_codes = encoder.transform(fingerprints)    # device='auto' by default
+labels = clusterer.predict(pq_codes)          # device='auto' by default
+
+# Or force a specific device
+labels_cpu = clusterer.predict(pq_codes, device='cpu')
+labels_gpu = clusterer.predict(pq_codes, device='gpu')
+```
+
+**Benchmarks** (20M molecules, K=100,000 clusters, RTX 4070 Ti 16GB):
+
+| Step | GPU | CPU | Speedup |
+|---:|---:|---:|---:|
+| PQ Transform | 7.3s | 45.3s | 6.2x |
+| Cluster Assignment | 29.9s | ~879s | 29.4x |
+
+Extrapolated to **9.6B molecules** (Enamine REAL):
+
+| Step | GPU | CPU |
+|---:|---:|---:|
+| PQ Transform | 59 min | 6.0 h |
+| Cluster Assignment | 4.0 h | 117 h |
+| **Combined** | **5.0 h** | **123 h** |
+
+The GPU implementation uses a custom Triton kernel for cluster assignment that tiles over centers with an online argmin, never materializing the N x K distance matrix. VRAM usage is ~10 bytes/point, so even an 8 GB GPU can process hundreds of millions of points per batch.
+
+To reproduce the benchmarks:
+
+```bash
+# Decompress the test SMILES (if using the gzipped version)
+gunzip -k data/10M_smiles.txt.gz
+
+# Run benchmark (pre-computes and caches fingerprints on first run)
+python scripts/benchmark_gpu_predict.py
+```
 
 ## Quick Start
 

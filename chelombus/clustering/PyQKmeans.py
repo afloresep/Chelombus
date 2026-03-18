@@ -15,6 +15,15 @@ import pqkmeans
 from numba import njit, prange
 from chelombus import PQEncoder
 
+_GPU_AVAILABLE = False
+try:
+    import torch
+    if torch.cuda.is_available():
+        from chelombus.clustering._gpu_predict import predict_gpu
+        _GPU_AVAILABLE = True
+except ImportError:
+    pass
+
 
 def _build_distance_tables(codewords: np.ndarray) -> np.ndarray:
     """Precompute symmetric squared-distance tables per subvector.
@@ -124,14 +133,12 @@ class PQKMeans:
         self._centers_u8 = None
         return self
 
-    def predict(self, X: np.ndarray) -> np.ndarray:
+    def predict(self, X: np.ndarray, device: str = 'auto') -> np.ndarray:
         """Predict cluster labels for PQ codes.
-
-        Uses Numba JIT-compiled parallel assignment with precomputed
-        symmetric distance lookup tables
 
         Args:
             X: PQ codes of shape (n_samples, n_subvectors), dtype uint8
+            device: 'cpu' for Numba, 'gpu' for Triton/CUDA, 'auto' to pick GPU if available.
 
         Returns:
             Cluster labels of shape (n_samples,)
@@ -141,7 +148,16 @@ class PQKMeans:
         if self._dtables is None:
             self._dtables = _build_distance_tables(self.encoder.codewords)
             self._centers_u8 = self.cluster_centers_.astype(np.uint8)
-        return _predict_numba(np.asarray(X, dtype=np.uint8), self._centers_u8, self._dtables)
+
+        use_gpu = (device == 'gpu') or (device == 'auto' and _GPU_AVAILABLE)
+        codes = np.asarray(X, dtype=np.uint8)
+
+        if use_gpu:
+            if not _GPU_AVAILABLE:
+                raise RuntimeError("GPU requested but CUDA/Triton not available")
+            return predict_gpu(codes, self._centers_u8, self._dtables)
+
+        return _predict_numba(codes, self._centers_u8, self._dtables)
 
     def fit_predict(self, X: np.ndarray) -> np.ndarray:
         """Fit the model and predict cluster labels in one step.
