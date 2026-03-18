@@ -5,6 +5,14 @@ from sklearn.cluster import KMeans
 from pathlib import Path
 import joblib
 from numpy.typing import NDArray
+
+_GPU_AVAILABLE = False
+try:
+    import torch
+    if torch.cuda.is_available():
+        _GPU_AVAILABLE = True
+except ImportError:
+    print('something went wrong') 
 class PQEncoder(PQEncoderBase):
     """
     Class to encode high-dimensional vectors into PQ-codes.
@@ -88,50 +96,86 @@ class PQEncoder(PQEncoderBase):
         del X_train # remove initial training data from memory
 
 
-    def transform(self, X:NDArray, verbose:int=1, **kwargs) -> NDArray:
+    def transform(self, X:NDArray, verbose:int=1, device:str='auto', **kwargs) -> NDArray:
         """
         Transforms the input matrix X into its PQ-codes.
 
-        For each sample in X, the input vector is split into `m` equal-sized subvectors. 
+        For each sample in X, the input vector is split into `m` equal-sized subvectors.
         Each subvector is assigned to the nearest cluster centroid
-        and the index of the closest centroid is stored. 
+        and the index of the closest centroid is stored.
 
         The result is a compact representation of X, where each sample is encoded as a sequence of centroid indices.
 
         Args:
-            X (np.ndarray): Input data matrix of shape (n_samples, n_features), 
+            X (np.ndarray): Input data matrix of shape (n_samples, n_features),
                             where n_features must be divisible by the number of subvectors `m`.
             verbose(int): Level of verbosity. Default is 1
+            device: 'cpu' for sklearn, 'gpu' for torch.cdist on CUDA, 'auto' to pick GPU if available.
             **kwargs: Optional keyword arguments passed to the underlying KMeans `predict()` function.
 
         Returns:
-            np.ndarray: PQ codes of shape (n_samples, m), where each element is the index of the nearest centroid 
+            np.ndarray: PQ codes of shape (n_samples, m), where each element is the index of the nearest centroid
                         for the corresponding subvector.
         """
 
         assert self.encoder_is_trained == True, "PQEncoder must be trained before calling transform"
 
+        use_gpu = (device == 'gpu') or (device == 'auto' and _GPU_AVAILABLE)
+        if use_gpu:
+            if not _GPU_AVAILABLE:
+                raise RuntimeError("GPU requested but CUDA not available")
+            return self._transform_gpu(X)
+
+        return self._transform_cpu(X, verbose, **kwargs)
+
+    def _transform_cpu(self, X: NDArray, verbose: int = 1, **kwargs) -> NDArray:
         N, D = X.shape
-        # Store the index of the Nearest centroid for each subvector
         pq_codes = np.zeros((N, self.m), dtype=self.codebook_dtype)
 
         iterable = range(self.m)
-        # If our original vector is 1024 and our m (splits) is 8 then each subvector will be of dim= 1024/8 = 128
-        if verbose > 0: 
+        if verbose > 0:
             iterable = tqdm(iterable, desc='Generating PQ-codes', total=self.m)
 
         subvector_dim = int(D / self.m)
 
         for subvector_idx in iterable:
-            X_train_subvector = X[:, subvector_dim * subvector_idx : subvector_dim * (subvector_idx + 1)] 
-            # For every subvector, run KMeans.predict(). Then look in the codebook for the index of the cluster that is closest
-            # Appends the centroid index to the pq_code.  
-            pq_codes[:, subvector_idx] =  self.pq_trained[subvector_idx].predict(X_train_subvector, **kwargs)
-            
-        # Free memory 
-        del  X
+            X_train_subvector = X[:, subvector_dim * subvector_idx : subvector_dim * (subvector_idx + 1)]
+            pq_codes[:, subvector_idx] = self.pq_trained[subvector_idx].predict(X_train_subvector, **kwargs)
 
-        # Return pq_codes (labels of the centroids for every subvector from the X_test data)
+        del X
+        return pq_codes
+
+    def _transform_gpu(self, X: NDArray) -> NDArray:
+        """GPU-accelerated transform using torch.cdist + argmin.
+
+        Batches points to avoid OOM: each batch produces an (batch, k) distance
+        matrix of k × 4 bytes per point.  With k=256 that is 1 KB/point, so
+        a 2 GB budget ≈ 2M points per batch.
+        """
+        N, D = X.shape
+        subvector_dim = int(D / self.m)
+        pq_codes = np.zeros((N, self.m), dtype=self.codebook_dtype)
+
+        cw_gpu = [
+            torch.from_numpy(self.codewords[sub].astype(np.float32)).cuda()
+            for sub in range(self.m)
+        ]
+
+        # Budget: keep the (batch, k) distance matrix under ~2 GB
+        max_batch = max((2 * 1024**3) // (self.k * 4), 1024)
+        X_f32 = X.astype(np.float32)
+
+        for start in range(0, N, max_batch):
+            end = min(start + max_batch, N)
+            for sub in range(self.m):
+                chunk = torch.from_numpy(
+                    np.ascontiguousarray(X_f32[start:end, subvector_dim * sub : subvector_dim * (sub + 1)])
+                ).cuda()
+                dists = torch.cdist(chunk, cw_gpu[sub])
+                pq_codes[start:end, sub] = dists.argmin(dim=1).cpu().numpy()
+                del chunk, dists
+
+        del X, cw_gpu
         return pq_codes
 
     def fit_transform(self, X:NDArray, verbose:int=1, **kwargs) -> NDArray:
