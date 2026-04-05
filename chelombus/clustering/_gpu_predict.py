@@ -7,12 +7,12 @@ an online argmin, never materializing the N x K distance matrix.
 VRAM budget per call
 --------------------
 Resident (cached, allocated once):
-    centers:  K × M bytes               (100K × 6 = 600 KB)
-    dtables:  M × 256 × 256 × 4 bytes   (6 × 256 × 256 × 4 = 1.5 MB)
+    centers:  K x M bytes               (100K x 6 = 600 KB)
+    dtables:  M x 256 x 256 x 4 bytes   (6 x 256 x 256 x 4 = 1.5 MB)
 
 Per-batch (freed after each batch):
-    codes:    batch_n × M bytes          (1 byte per subvector)
-    labels:   batch_n × 4 bytes          (int32)
+    codes:    batch_n x M bytes          (1 byte per subvector)
+    labels:   batch_n x 4 bytes          (int32)
     → 10 bytes per point
 
 So for a given free VRAM of F bytes, max batch ≈ F / 10.
@@ -40,7 +40,8 @@ def _pq_assign_kernel(
     BLOCK_K: tl.constexpr,    # number of centers per tile
 ):
     pid = tl.program_id(0)
-    point_offs = pid * BLOCK_N + tl.arange(0, BLOCK_N)
+    # int64 offsets: point_offs * M overflows int32 when N > ~357M
+    point_offs = (pid * BLOCK_N + tl.arange(0, BLOCK_N)).to(tl.int64)
     point_mask = point_offs < N
 
     best_dist = tl.full((BLOCK_N,), float('inf'), dtype=tl.float32)
@@ -99,20 +100,26 @@ def _pq_assign_kernel(
     tl.store(labels_ptr + point_offs, best_label, mask=point_mask)
 
 
-# ---------------------------------------------------------------------------
 # GPU tensor cache (centers + dtables persist across predict calls)
-# ---------------------------------------------------------------------------
 _gpu_cache: dict = {}
 
 
 def _get_or_upload(key: str, array: np.ndarray, dtype: torch.dtype) -> torch.Tensor:
-    """Upload numpy array to GPU, caching by (key, data_ptr, shape)."""
-    cache_key = (key, array.ctypes.data, array.shape)
-    cached = _gpu_cache.get(cache_key)
-    if cached is not None:
-        return cached
-    tensor = torch.from_numpy(np.ascontiguousarray(array)).to(dtype=dtype, device='cuda')
-    _gpu_cache[cache_key] = tensor
+    """Upload numpy array to GPU, caching by key with content comparison.
+
+    Stores one tensor per key.  On a cache hit the stored reference array is
+    compared element-wise to *array*; a mismatch triggers a re-upload.
+    This avoids the old scheme of caching by memory address, which silently
+    returned stale tensors when Python reused a freed address.
+    """
+    arr = np.ascontiguousarray(array)
+    entry = _gpu_cache.get(key)
+    if entry is not None:
+        ref, tensor = entry
+        if ref.shape == arr.shape and np.array_equal(ref, arr):
+            return tensor
+    tensor = torch.from_numpy(arr).to(dtype=dtype, device='cuda')
+    _gpu_cache[key] = (arr.copy(), tensor)
     return tensor
 
 
@@ -131,15 +138,14 @@ def _auto_batch_size(N: int, M: int) -> int:
     return min(max_batch, N)
 
 
-# ---------------------------------------------------------------------------
 # Public API
-# ---------------------------------------------------------------------------
 
 def predict_gpu(
     pq_codes: np.ndarray,
     centers: np.ndarray,
     dtables: np.ndarray,
     batch_size: int = 0,
+    verbose: bool = False,
 ) -> np.ndarray:
     """GPU-accelerated PQ assignment.
 
@@ -149,10 +155,13 @@ def predict_gpu(
         dtables: (M, 256, 256) float32 distance lookup tables.
         batch_size: Max points per GPU batch.
                     0 (default) = auto-detect from free VRAM.
+        verbose: Print per-batch progress (useful for billion-scale runs).
 
     Returns:
         (N,) int64 cluster labels (same dtype as CPU path).
     """
+    import time as _time
+
     N, M = pq_codes.shape
     K = centers.shape[0]
 
@@ -174,8 +183,10 @@ def predict_gpu(
         batch_size = _auto_batch_size(N, M)
 
     labels_out = np.empty(N, dtype=np.int64)
+    n_batches = (N + batch_size - 1) // batch_size
+    t0 = _time.time()
 
-    for start in range(0, N, batch_size):
+    for batch_idx, start in enumerate(range(0, N, batch_size)):
         end = min(start + batch_size, N)
         chunk = pq_codes[start:end]
         n_chunk = end - start
@@ -187,6 +198,16 @@ def predict_gpu(
 
         labels_out[start:end] = labels_gpu.cpu().numpy()
         del codes_gpu, labels_gpu
+
+        if verbose and n_batches > 1:
+            elapsed = _time.time() - t0
+            rate = end / elapsed
+            eta = (N - end) / rate if rate > 0 else 0
+            print(f"    batch {batch_idx+1}/{n_batches}  "
+                  f"{end:,}/{N:,} ({end/N*100:.0f}%)  "
+                  f"rate={rate:,.0f} pts/s  "
+                  f"ETA={int(eta//60)}m{int(eta%60)}s",
+                  flush=True)
 
     return labels_out
 

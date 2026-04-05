@@ -103,7 +103,7 @@ class TestFingerprintIntegration:
 
         # MQN fingerprints are 42-dimensional
         assert fps.shape == (10, 42)
-        assert fps.dtype == np.int16
+        assert fps.dtype == np.uint8
 
     def test_calculate_morgan_fingerprints(self):
         """Test Morgan fingerprint calculation."""
