@@ -140,21 +140,20 @@ python scripts/select_k.py \
     --plot results/k_selection.png
 ```
 
-**Results on 100M Enamine REAL molecules** (AMD Ryzen 7, 64GB RAM):
+**Results on 100M Enamine REAL molecules** (RTX 4070 Ti SUPER 16GB, AMD Ryzen 7 64GB RAM):
 
-| k | Avg Distance | Empty Clusters | Median Cluster Size | Fit Time |
-|---:|---:|---:|---:|---:|
-| 10,000 | 3.65 | 6.8% | 8,945 | 1.3 h |
-| 25,000 | 2.74 | 13.3% | 3,673 | 3.1 h |
-| 50,000 | 2.17 | 19.6% | 1,876 | 6.2 h |
-| 100,000 | 1.69 | 26.6% | 956 | 12.6 h |
-| 200,000 | 1.30 | 34.7% | 492 | 26.4 h |
+| k | Avg Distance | Empty Clusters | Median Cluster Size | Fit Time (GPU) | Fit Time (CPU) |
+|---:|---:|---:|---:|---:|---:|
+| 10,000 | 3.67 | 7.1% | 9,061 | 1.7 min | 1.3 h |
+| 25,000 | 2.74 | 13.5% | 3,680 | 3.3 min | 3.1 h |
+| 50,000 | 2.17 | 19.5% | 1,879 | 6.0 min | 6.2 h |
+| 100,000 | 1.69 | 26.7% | 960 | 9.1 min | 12.6 h |
+| 200,000 | 1.30 | 34.7% | 492 | 17.6 min | 26.4 h |
 
 **Guidelines:**
 - **k = 50,000** is a good default — under 20% empty clusters, median size ~1,900, and the avg distance improvement starts plateauing beyond this point.
 - **k = 100,000** if you need tighter clusters and can tolerate ~27% empty clusters.
 - Beyond 200K, over a third of clusters are empty — diminishing returns.
-- Fit time scales linearly with both n and k (e.g., 1B molecules at k=50K ≈ 2.6 days).
 
 ## Documentation
 
