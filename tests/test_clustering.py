@@ -372,8 +372,9 @@ class TestPQEncoderRegressions:
 
     def test_gpu_encoder_batch_size_uses_free_vram(self, monkeypatch):
         """GPU encoder batch sizing should respond to the current free VRAM."""
+        torch = pytest.importorskip("torch", reason="torch not installed")
         monkeypatch.setattr(
-            encoder_module.torch.cuda,
+            torch.cuda,
             "mem_get_info",
             lambda: (int(1.5 * 1024**3), int(16 * 1024**3)),
         )
