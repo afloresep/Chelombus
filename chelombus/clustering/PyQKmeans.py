@@ -168,8 +168,6 @@ class PQKMeans:
     def _gpu_support_reason(self) -> str | None:
         if not _GPU_AVAILABLE:
             return "CUDA/Triton not available"
-        if self.encoder.m != 6:
-            return f"GPU path currently supports only m=6, got m={self.encoder.m}"
         if self.encoder.k > 256:
             return (
                 "GPU path currently supports only 8-bit PQ codes "

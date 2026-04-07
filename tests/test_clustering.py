@@ -347,26 +347,24 @@ class TestPQKMeansRegressions:
         assert clusterer._fit_labels is None
         assert clusterer.__getstate__()["_fit_labels"] is None
 
-    def test_auto_falls_back_to_cpu_when_gpu_path_is_unsupported(self, monkeypatch):
-        """device='auto' should not try the GPU path when m is unsupported."""
+    def test_auto_falls_back_to_cpu_when_k_exceeds_256(self, monkeypatch, trained_encoder, sample_pq_codes):
+        """device='auto' should not try the GPU path when encoder.k > 256."""
         monkeypatch.setattr(pyqkmeans_module, "_GPU_AVAILABLE", True)
 
         def fail_predict_gpu(*args, **kwargs):
-            raise AssertionError("predict_gpu should not be called for unsupported m")
+            raise AssertionError("predict_gpu should not be called for k > 256")
 
         monkeypatch.setattr(pyqkmeans_module, "predict_gpu", fail_predict_gpu, raising=False)
 
-        np.random.seed(7)
-        X = np.random.rand(200, 40).astype(np.float32)
-        encoder = PQEncoder(k=16, m=8, iterations=3)
-        encoder.fit(X, verbose=0)
-        pq_codes = encoder.transform(X, verbose=0)
+        clusterer = PQKMeans(trained_encoder, k=5, iteration=3, verbose=False)
+        # Pretend the encoder has k > 256 to trigger the guard
+        monkeypatch.setattr(trained_encoder, "k", 512)
 
-        clusterer = PQKMeans(encoder, k=5, iteration=3, verbose=False)
-        labels = clusterer.fit_predict(pq_codes, device='auto')
+        clusterer.fit(sample_pq_codes, device='auto')
+        labels = clusterer.predict(sample_pq_codes, device='auto')
 
-        assert labels.shape == (len(pq_codes),)
-        assert clusterer.predict(pq_codes, device='auto').shape == (len(pq_codes),)
+        assert labels.shape == (len(sample_pq_codes),)
+        assert labels.min() >= 0
 
 
 class TestPQEncoderRegressions:

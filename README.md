@@ -47,49 +47,42 @@ pip install -e .
 
 ## GPU Acceleration
 
-Both `PQEncoder.transform()` and `PQKMeans.predict()` support optional GPU acceleration via the `device` parameter. When a CUDA GPU is available, `device='auto'` (the default) uses the GPU transparently; otherwise it falls back to CPU.
+Every step in the pipeline supports optional GPU acceleration via the `device` parameter: encoder training, PQ encoding, cluster training, and label assignment. When a CUDA GPU is available, `device='auto'` (the default) uses the GPU transparently; otherwise it falls back to CPU.
 
 **Requirements**: `torch` and `triton` (both installed with `pip install torch`).
 
 ```python
-encoder = PQEncoder.load('encoder.joblib')
-clusterer = PQKMeans.load('clusterer.joblib')
+encoder = PQEncoder(k=256, m=6, iterations=20)
+encoder.fit(training_fps, device='auto')          # GPU KMeans fitting
+pq_codes = encoder.transform(fingerprints)        # GPU batch assignment
 
-# GPU is used automatically when available
-pq_codes = encoder.transform(fingerprints)    # device='auto' by default
-labels = clusterer.predict(pq_codes)          # device='auto' by default
+clusterer = PQKMeans(encoder, k=100000)
+clusterer.fit(pq_codes)                           # GPU Triton assign + CPU centroid update
+labels = clusterer.predict(pq_codes)              # GPU Triton kernel
 
 # Or force a specific device
 labels_cpu = clusterer.predict(pq_codes, device='cpu')
 labels_gpu = clusterer.predict(pq_codes, device='gpu')
 ```
 
-**Benchmarks** (20M molecules, K=100,000 clusters, RTX 4070 Ti 16GB):
+**GPU benchmarks on 1B Enamine REAL molecules** (RTX 4070 Ti SUPER 16GB, K=100,000):
 
-| Step | GPU | CPU | Speedup |
-|---:|---:|---:|---:|
-| PQ Transform | 7.3s | 45.3s | 6.2x |
-| Cluster Assignment | 29.9s | ~879s | 29.4x |
+| Stage | Description | Time |
+|:---|:---|---:|
+| Encoder training | Train codebook on 50M MQN fingerprints | 1.8 min |
+| PQ encoding | Encode 1B MQN fingerprints → 1B PQ codes (6-dim) | 3.7 min |
+| Cluster training | Train PQKMeans on 1B PQ codes (5 iters, tol=0) | 2.3 hrs |
+| Label assignment | Assign 1B PQ codes to 100K clusters | 26.2 min |
+| **Total** | | **2.9 hrs** |
 
-Extrapolated to **9.6B molecules** (Enamine REAL):
+Cluster training with the default `tol=1e-3` converges earlier (changed centers dropped from 11.8% → 0.2% over 5 iterations), reducing training time further. Extrapolated to 10B molecules: ~1.2 days.
 
-| Step | GPU | CPU |
-|---:|---:|---:|
-| PQ Transform | 59 min | 6.0 h |
-| Cluster Assignment | 4.0 h | 117 h |
-| **Combined** | **5.0 h** | **123 h** |
-
-The GPU implementation uses a custom Triton kernel for cluster assignment that tiles over centers with an online argmin, never materializing the N x K distance matrix. VRAM usage is ~10 bytes/point, so even an 8 GB GPU can process hundreds of millions of points per batch.
-
-To reproduce the benchmarks:
-
+To reproduce (requires 1B MQN fingerprints as `.npy` chunks):
 ```bash
-# Decompress the test SMILES (if using the gzipped version)
-gunzip -k data/10M_smiles.txt.gz
-
-# Run benchmark (pre-computes and caches fingerprints on first run)
-python scripts/benchmark_gpu_predict.py
+python scripts/benchmark_1B_pipeline.py --chunks /path/to/chunks --n 1000000000
 ```
+
+The GPU implementation uses a custom Triton kernel for cluster assignment that tiles over centers with an online argmin, never materializing the N x K distance matrix. The kernel supports any number of subvectors M via compile-time unrolling (`tl.static_range`). VRAM usage is ~(M+4) bytes/point, so even an 8 GB GPU can process hundreds of millions of points per batch.
 
 ## Quick Start
 
