@@ -23,7 +23,7 @@
       
       
       <link rel="icon" href="../assets/images/favicon.png">
-      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.5">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.6">
     
     
       
@@ -372,6 +372,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#gpu-support-optional" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        GPU Support (optional)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#from-source" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -395,6 +406,73 @@
       
     </span>
   </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#gpu-acceleration" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        GPU Acceleration
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="GPU Acceleration">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#explicit-device-control" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Explicit device control
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#visualization" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Visualization
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Visualization">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#from-python" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        From Python
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#from-cli" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        From CLI
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
   
 </li>
       
@@ -532,6 +610,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#gpu-support-optional" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        GPU Support (optional)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#from-source" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -555,6 +644,73 @@
       
     </span>
   </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#gpu-acceleration" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        GPU Acceleration
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="GPU Acceleration">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#explicit-device-control" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Explicit device control
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#visualization" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Visualization
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Visualization">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#from-python" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        From Python
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#from-cli" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        From CLI
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
   
 </li>
       
@@ -605,37 +761,115 @@
 <h3 id="from-pypi-recommended">From PyPI (recommended)<a class="headerlink" href="#from-pypi-recommended" title="Permanent link">&para;</a></h3>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>pip<span class="w"> </span>install<span class="w"> </span>chelombus
 </code></pre></div>
+<h3 id="gpu-support-optional">GPU Support (optional)<a class="headerlink" href="#gpu-support-optional" title="Permanent link">&para;</a></h3>
+<p>GPU acceleration requires PyTorch and Triton. Install them separately for your CUDA version:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>pip<span class="w"> </span>install<span class="w"> </span>torch<span class="w"> </span>triton
+</code></pre></div>
+<p>When CUDA is available, <code>PQEncoder.fit()</code>, <code>.transform()</code>, <code>PQKMeans.fit()</code>, and <code>.predict()</code> automatically use the GPU. No code changes needed — the library falls back to CPU transparently if CUDA is not detected.</p>
 <h3 id="from-source">From Source<a class="headerlink" href="#from-source" title="Permanent link">&para;</a></h3>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>git<span class="w"> </span>clone<span class="w"> </span>https://github.com/afloresep/chelombus.git
-<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="nb">cd</span><span class="w"> </span>chelombus
-<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>pip<span class="w"> </span>install<span class="w"> </span>-e<span class="w"> </span>.
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>git<span class="w"> </span>clone<span class="w"> </span>https://github.com/afloresep/chelombus.git
+<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="nb">cd</span><span class="w"> </span>chelombus
+<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>pip<span class="w"> </span>install<span class="w"> </span>-e<span class="w"> </span>.
 </code></pre></div>
 <div class="admonition warning">
 <p class="admonition-title">Apple Silicon (M1/M2/M3)</p>
 <p>The <code>pqkmeans</code> library is not currently supported on Apple Silicon Macs. Clustering functionality requires an x86_64 system.</p>
 </div>
 <h2 id="quick-start">Quick Start<a class="headerlink" href="#quick-start" title="Permanent link">&para;</a></h2>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">chelombus</span><span class="w"> </span><span class="kn">import</span> <span class="n">DataStreamer</span><span class="p">,</span> <span class="n">FingerprintCalculator</span><span class="p">,</span> <span class="n">PQEncoder</span><span class="p">,</span> <span class="n">PQKMeans</span>
-<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>
-<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="c1"># 1. Stream SMILES in chunks</span>
-<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="n">streamer</span> <span class="o">=</span> <span class="n">DataStreamer</span><span class="p">(</span><span class="n">path</span><span class="o">=</span><span class="s1">&#39;molecules.smi&#39;</span><span class="p">,</span> <span class="n">chunksize</span><span class="o">=</span><span class="mi">100000</span><span class="p">)</span>
-<a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a>
-<a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a><span class="c1"># 2. Calculate MQN fingerprints</span>
-<a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a><span class="n">fp_calc</span> <span class="o">=</span> <span class="n">FingerprintCalculator</span><span class="p">()</span>
-<a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a><span class="k">for</span> <span class="n">smiles_chunk</span> <span class="ow">in</span> <span class="n">streamer</span><span class="o">.</span><span class="n">parse_input</span><span class="p">():</span>
-<a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a>    <span class="n">fingerprints</span> <span class="o">=</span> <span class="n">fp_calc</span><span class="o">.</span><span class="n">FingerprintFromSmiles</span><span class="p">(</span><span class="n">smiles_chunk</span><span class="p">,</span> <span class="n">fp</span><span class="o">=</span><span class="s1">&#39;mqn&#39;</span><span class="p">)</span>
-<a id="__codelineno-2-10" name="__codelineno-2-10" href="#__codelineno-2-10"></a>    <span class="c1"># Save fingerprints...</span>
-<a id="__codelineno-2-11" name="__codelineno-2-11" href="#__codelineno-2-11"></a>
-<a id="__codelineno-2-12" name="__codelineno-2-12" href="#__codelineno-2-12"></a><span class="c1"># 3. Train PQ encoder on sample</span>
-<a id="__codelineno-2-13" name="__codelineno-2-13" href="#__codelineno-2-13"></a><span class="n">encoder</span> <span class="o">=</span> <span class="n">PQEncoder</span><span class="p">(</span><span class="n">k</span><span class="o">=</span><span class="mi">256</span><span class="p">,</span> <span class="n">m</span><span class="o">=</span><span class="mi">6</span><span class="p">,</span> <span class="n">iterations</span><span class="o">=</span><span class="mi">20</span><span class="p">)</span>
-<a id="__codelineno-2-14" name="__codelineno-2-14" href="#__codelineno-2-14"></a><span class="n">encoder</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">training_fingerprints</span><span class="p">)</span>
-<a id="__codelineno-2-15" name="__codelineno-2-15" href="#__codelineno-2-15"></a>
-<a id="__codelineno-2-16" name="__codelineno-2-16" href="#__codelineno-2-16"></a><span class="c1"># 4. Transform all fingerprints to PQ codes</span>
-<a id="__codelineno-2-17" name="__codelineno-2-17" href="#__codelineno-2-17"></a><span class="n">pq_codes</span> <span class="o">=</span> <span class="n">encoder</span><span class="o">.</span><span class="n">transform</span><span class="p">(</span><span class="n">fingerprints</span><span class="p">)</span>
-<a id="__codelineno-2-18" name="__codelineno-2-18" href="#__codelineno-2-18"></a>
-<a id="__codelineno-2-19" name="__codelineno-2-19" href="#__codelineno-2-19"></a><span class="c1"># 5. Cluster with PQk-means</span>
-<a id="__codelineno-2-20" name="__codelineno-2-20" href="#__codelineno-2-20"></a><span class="n">clusterer</span> <span class="o">=</span> <span class="n">PQKMeans</span><span class="p">(</span><span class="n">encoder</span><span class="p">,</span> <span class="n">k</span><span class="o">=</span><span class="mi">100000</span><span class="p">)</span>
-<a id="__codelineno-2-21" name="__codelineno-2-21" href="#__codelineno-2-21"></a><span class="n">labels</span> <span class="o">=</span> <span class="n">clusterer</span><span class="o">.</span><span class="n">fit_predict</span><span class="p">(</span><span class="n">pq_codes</span><span class="p">)</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="kn">from</span> <span class="nn">chelombus</span> <span class="kn">import</span> <span class="n">DataStreamer</span><span class="p">,</span> <span class="n">FingerprintCalculator</span><span class="p">,</span> <span class="n">PQEncoder</span><span class="p">,</span> <span class="n">PQKMeans</span>
+<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>
+<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="c1"># 1. Stream SMILES in chunks</span>
+<a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="n">streamer</span> <span class="o">=</span> <span class="n">DataStreamer</span><span class="p">()</span>
+<a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a><span class="n">smiles_gen</span> <span class="o">=</span> <span class="n">streamer</span><span class="o">.</span><span class="n">parse_input</span><span class="p">(</span><span class="s1">&#39;molecules.smi&#39;</span><span class="p">,</span> <span class="n">chunksize</span><span class="o">=</span><span class="mi">100000</span><span class="p">,</span> <span class="n">smiles_col</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+<a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a>
+<a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a><span class="c1"># 2. Calculate MQN fingerprints</span>
+<a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a><span class="n">fp_calc</span> <span class="o">=</span> <span class="n">FingerprintCalculator</span><span class="p">()</span>
+<a id="__codelineno-3-9" name="__codelineno-3-9" href="#__codelineno-3-9"></a><span class="k">for</span> <span class="n">smiles_chunk</span> <span class="ow">in</span> <span class="n">smiles_gen</span><span class="p">:</span>
+<a id="__codelineno-3-10" name="__codelineno-3-10" href="#__codelineno-3-10"></a>    <span class="n">fingerprints</span> <span class="o">=</span> <span class="n">fp_calc</span><span class="o">.</span><span class="n">FingerprintFromSmiles</span><span class="p">(</span><span class="n">smiles_chunk</span><span class="p">,</span> <span class="n">fp</span><span class="o">=</span><span class="s1">&#39;mqn&#39;</span><span class="p">)</span>
+<a id="__codelineno-3-11" name="__codelineno-3-11" href="#__codelineno-3-11"></a>    <span class="c1"># Save fingerprints...</span>
+<a id="__codelineno-3-12" name="__codelineno-3-12" href="#__codelineno-3-12"></a>
+<a id="__codelineno-3-13" name="__codelineno-3-13" href="#__codelineno-3-13"></a><span class="c1"># 3. Train PQ encoder (uses GPU automatically if available)</span>
+<a id="__codelineno-3-14" name="__codelineno-3-14" href="#__codelineno-3-14"></a><span class="n">encoder</span> <span class="o">=</span> <span class="n">PQEncoder</span><span class="p">(</span><span class="n">k</span><span class="o">=</span><span class="mi">256</span><span class="p">,</span> <span class="n">m</span><span class="o">=</span><span class="mi">6</span><span class="p">,</span> <span class="n">iterations</span><span class="o">=</span><span class="mi">20</span><span class="p">)</span>
+<a id="__codelineno-3-15" name="__codelineno-3-15" href="#__codelineno-3-15"></a><span class="n">encoder</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">training_fingerprints</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="s1">&#39;auto&#39;</span><span class="p">)</span>
+<a id="__codelineno-3-16" name="__codelineno-3-16" href="#__codelineno-3-16"></a>
+<a id="__codelineno-3-17" name="__codelineno-3-17" href="#__codelineno-3-17"></a><span class="c1"># 4. Transform all fingerprints to PQ codes</span>
+<a id="__codelineno-3-18" name="__codelineno-3-18" href="#__codelineno-3-18"></a><span class="n">pq_codes</span> <span class="o">=</span> <span class="n">encoder</span><span class="o">.</span><span class="n">transform</span><span class="p">(</span><span class="n">fingerprints</span><span class="p">)</span>
+<a id="__codelineno-3-19" name="__codelineno-3-19" href="#__codelineno-3-19"></a>
+<a id="__codelineno-3-20" name="__codelineno-3-20" href="#__codelineno-3-20"></a><span class="c1"># 5. Cluster with PQk-means</span>
+<a id="__codelineno-3-21" name="__codelineno-3-21" href="#__codelineno-3-21"></a><span class="n">clusterer</span> <span class="o">=</span> <span class="n">PQKMeans</span><span class="p">(</span><span class="n">encoder</span><span class="p">,</span> <span class="n">k</span><span class="o">=</span><span class="mi">100000</span><span class="p">)</span>
+<a id="__codelineno-3-22" name="__codelineno-3-22" href="#__codelineno-3-22"></a><span class="n">labels</span> <span class="o">=</span> <span class="n">clusterer</span><span class="o">.</span><span class="n">fit_predict</span><span class="p">(</span><span class="n">pq_codes</span><span class="p">)</span>
+</code></pre></div>
+<h2 id="gpu-acceleration">GPU Acceleration<a class="headerlink" href="#gpu-acceleration" title="Permanent link">&para;</a></h2>
+<p>When PyTorch and Triton are installed with CUDA support, the entire PQ pipeline runs on GPU.</p>
+<p><strong>GPU benchmarks on 10M Enamine MQN fingerprints</strong> (RTX 4070 Ti SUPER 16GB, k=10,000):</p>
+<table>
+<thead>
+<tr>
+<th style="text-align: left;">Stage</th>
+<th style="text-align: right;">Time</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;"><code>encoder.fit()</code> (10M, m=6, k=256)</td>
+<td style="text-align: right;">12.1s</td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>encoder.transform()</code> (10M)</td>
+<td style="text-align: right;">1.8s</td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>clusterer.fit()</code> (10M, k=10K, 5 iters)</td>
+<td style="text-align: right;">15.4s</td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>clusterer.predict()</code> (10M)</td>
+<td style="text-align: right;">2.1s</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Total</strong></td>
+<td style="text-align: right;"><strong>31.4s</strong></td>
+</tr>
+</tbody>
+</table>
+<p>At 1B scale with k=100K, the full pipeline completes in ~2.9 hours on the same GPU.</p>
+<h3 id="explicit-device-control">Explicit device control<a class="headerlink" href="#explicit-device-control" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="c1"># Force GPU</span>
+<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="n">encoder</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">X_train</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="s1">&#39;gpu&#39;</span><span class="p">)</span>
+<a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a>
+<a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="c1"># Force CPU</span>
+<a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a><span class="n">encoder</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">X_train</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="s1">&#39;cpu&#39;</span><span class="p">)</span>
+<a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a>
+<a id="__codelineno-4-7" name="__codelineno-4-7" href="#__codelineno-4-7"></a><span class="c1"># Auto-detect (default for fit; transform/predict auto-detect always)</span>
+<a id="__codelineno-4-8" name="__codelineno-4-8" href="#__codelineno-4-8"></a><span class="n">encoder</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">X_train</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="s1">&#39;auto&#39;</span><span class="p">)</span>
+</code></pre></div>
+<p>The GPU path uses VRAM-aware batching — it queries free GPU memory and sizes batches automatically so you don't need to worry about OOM errors.</p>
+<h2 id="visualization">Visualization<a class="headerlink" href="#visualization" title="Permanent link">&para;</a></h2>
+<p>Chelombus uses <a href="https://github.com/afloresep/tmap2">tmap2</a> for interactive TMAP visualizations.</p>
+<h3 id="from-python">From Python<a class="headerlink" href="#from-python" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="kn">from</span> <span class="nn">chelombus</span> <span class="kn">import</span> <span class="n">sample_from_cluster</span>
+<a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="kn">from</span> <span class="nn">chelombus.utils.visualization</span> <span class="kn">import</span> <span class="n">create_tmap</span><span class="p">,</span> <span class="n">representative_tmap</span>
+<a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a>
+<a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a><span class="c1"># Visualize molecules from a cluster</span>
+<a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a><span class="n">df</span> <span class="o">=</span> <span class="n">sample_from_cluster</span><span class="p">(</span><span class="s1">&#39;results/&#39;</span><span class="p">,</span> <span class="n">cluster_id</span><span class="o">=</span><span class="mi">42</span><span class="p">,</span> <span class="n">n</span><span class="o">=</span><span class="mi">1000</span><span class="p">)</span>
+<a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a><span class="n">create_tmap</span><span class="p">(</span>
+<a id="__codelineno-5-7" name="__codelineno-5-7" href="#__codelineno-5-7"></a>    <span class="n">smiles</span><span class="o">=</span><span class="n">df</span><span class="p">[</span><span class="s1">&#39;smiles&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">tolist</span><span class="p">(),</span>
+<a id="__codelineno-5-8" name="__codelineno-5-8" href="#__codelineno-5-8"></a>    <span class="n">fingerprint</span><span class="o">=</span><span class="s1">&#39;morgan&#39;</span><span class="p">,</span>
+<a id="__codelineno-5-9" name="__codelineno-5-9" href="#__codelineno-5-9"></a>    <span class="n">properties</span><span class="o">=</span><span class="p">[</span><span class="s1">&#39;mw&#39;</span><span class="p">,</span> <span class="s1">&#39;logp&#39;</span><span class="p">,</span> <span class="s1">&#39;qed&#39;</span><span class="p">,</span> <span class="s1">&#39;n_rings&#39;</span><span class="p">],</span>
+<a id="__codelineno-5-10" name="__codelineno-5-10" href="#__codelineno-5-10"></a>    <span class="n">tmap_name</span><span class="o">=</span><span class="s1">&#39;cluster_42&#39;</span><span class="p">,</span>
+<a id="__codelineno-5-11" name="__codelineno-5-11" href="#__codelineno-5-11"></a><span class="p">)</span>
+<a id="__codelineno-5-12" name="__codelineno-5-12" href="#__codelineno-5-12"></a>
+<a id="__codelineno-5-13" name="__codelineno-5-13" href="#__codelineno-5-13"></a><span class="c1"># Representative TMAP with cluster IDs</span>
+<a id="__codelineno-5-14" name="__codelineno-5-14" href="#__codelineno-5-14"></a><span class="n">representative_tmap</span><span class="p">(</span>
+<a id="__codelineno-5-15" name="__codelineno-5-15" href="#__codelineno-5-15"></a>    <span class="n">smiles</span><span class="o">=</span><span class="n">rep_smiles</span><span class="p">,</span>
+<a id="__codelineno-5-16" name="__codelineno-5-16" href="#__codelineno-5-16"></a>    <span class="n">cluster_ids</span><span class="o">=</span><span class="n">rep_cluster_ids</span><span class="p">,</span>
+<a id="__codelineno-5-17" name="__codelineno-5-17" href="#__codelineno-5-17"></a>    <span class="n">fingerprint</span><span class="o">=</span><span class="s1">&#39;mqn&#39;</span><span class="p">,</span>
+<a id="__codelineno-5-18" name="__codelineno-5-18" href="#__codelineno-5-18"></a>    <span class="n">tmap_name</span><span class="o">=</span><span class="s1">&#39;representatives&#39;</span><span class="p">,</span>
+<a id="__codelineno-5-19" name="__codelineno-5-19" href="#__codelineno-5-19"></a><span class="p">)</span>
+</code></pre></div>
+<h3 id="from-cli">From CLI<a class="headerlink" href="#from-cli" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>chelombus-tmap<span class="w"> </span>--smiles<span class="w"> </span>molecules.smi<span class="w"> </span>--fingerprint<span class="w"> </span>morgan<span class="w"> </span>--output<span class="w"> </span>my_tmap
+<a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a>chelombus-tmap<span class="w"> </span>--cluster-file<span class="w"> </span>representatives.csv<span class="w"> </span>--output<span class="w"> </span>rep_tmap
 </code></pre></div>
 <h2 id="pipeline-scripts">Pipeline Scripts<a class="headerlink" href="#pipeline-scripts" title="Permanent link">&para;</a></h2>
 <p>For large-scale processing, use the pipeline scripts in <code>scripts/</code>:</p>
@@ -648,41 +882,29 @@
 </thead>
 <tbody>
 <tr>
-<td><code>calculate_fingerprints.py</code></td>
-<td>Compute MQN fingerprints from SMILES</td>
+<td><code>cluster_smiles.py</code></td>
+<td>End-to-end: SMILES to clustered parquet</td>
 </tr>
 <tr>
-<td><code>train_encoder.py</code></td>
-<td>Train the PQ encoder on a sample</td>
+<td><code>benchmark_1B_pipeline.py</code></td>
+<td>Full pipeline benchmark at billion scale</td>
 </tr>
 <tr>
-<td><code>generate_pqcodes.py</code></td>
-<td>Transform fingerprints to PQ codes</td>
+<td><code>benchmark_gpu_predict.py</code></td>
+<td>GPU vs CPU predict benchmarks</td>
 </tr>
 <tr>
-<td><code>fit_pqkmeans.py</code></td>
-<td>Fit PQk-means clustering</td>
-</tr>
-<tr>
-<td><code>assign_clusters.py</code></td>
-<td>Assign molecules to clusters</td>
-</tr>
-<tr>
-<td><code>select_k.py</code></td>
-<td>Hyperparameter sweep for choosing k</td>
-</tr>
-<tr>
-<td><code>run_pipeline.py</code></td>
-<td>Run the full pipeline end-to-end</td>
+<td><code>k_selection_gpu.py</code></td>
+<td>GPU-accelerated k hyperparameter sweep</td>
 </tr>
 </tbody>
 </table>
 <h2 id="testing">Testing<a class="headerlink" href="#testing" title="Permanent link">&para;</a></h2>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="c1"># Run all tests</span>
-<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>pytest<span class="w"> </span>tests/
-<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a>
-<a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="c1"># Run specific test file</span>
-<a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a>pytest<span class="w"> </span>tests/test_encoder.py<span class="w"> </span>-v
+<div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="c1"># Run all tests</span>
+<a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a>pytest<span class="w"> </span>tests/
+<a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a>
+<a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a><span class="c1"># Run specific test file</span>
+<a id="__codelineno-7-5" name="__codelineno-7-5" href="#__codelineno-7-5"></a>pytest<span class="w"> </span>tests/test_encoder.py<span class="w"> </span>-v
 </code></pre></div>
 
 

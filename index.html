@@ -21,7 +21,7 @@
       
       
       <link rel="icon" href="assets/images/favicon.png">
-      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.5">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.6">
     
     
       
@@ -510,17 +510,18 @@
 <ul>
 <li><strong>Scalability</strong>: Stream billions of molecules without loading everything into memory</li>
 <li><strong>Efficiency</strong>: Compress 42-dimensional MQN vectors to 6-byte PQ codes (28x compression)</li>
-<li><strong>Visualization</strong>: Navigate from global overview to individual molecules in two clicks</li>
-<li><strong>Accessibility</strong>: Runs on commodity hardware (tested: AMD Ryzen 7, 64GB RAM)</li>
+<li><strong>GPU Acceleration</strong>: Full CUDA pipeline via PyTorch + Triton kernels for fit, transform, and predict</li>
+<li><strong>Visualization</strong>: Interactive TMAPs powered by <a href="https://github.com/afloresep/tmap2">tmap2</a> — navigate from global overview to individual molecules in two clicks</li>
+<li><strong>Accessibility</strong>: Runs on commodity hardware (tested: AMD Ryzen 7, 64GB RAM); GPU optional</li>
 </ul>
 <h2 id="project-structure">Project Structure<a class="headerlink" href="#project-structure" title="Permanent link">&para;</a></h2>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>chelombus/
 <a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>├── chelombus/
-<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>│   ├── encoder/          # Product Quantization encoder
-<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a>│   ├── clustering/       # PQk-means wrapper
+<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>│   ├── encoder/          # Product Quantization encoder (CPU + GPU)
+<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a>│   ├── clustering/       # PQk-means wrapper + Triton kernels
 <a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a>│   ├── streamer/         # Memory-efficient data streaming
-<a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a>│   └── utils/            # Fingerprints, visualization, helpers
-<a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a>├── scripts/              # Pipeline scripts
+<a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a>│   └── utils/            # Fingerprints, visualization, cluster I/O
+<a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a>├── scripts/              # Pipeline and benchmark scripts
 <a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a>├── examples/             # Tutorial notebooks
 <a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a>└── tests/                # Unit tests
 </code></pre></div>
