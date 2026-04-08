@@ -41,11 +41,24 @@ Benchmark configuration: AMD Ryzen 7, 64GB RAM, 10 PQk-means iterations per k.
 - **k = 100,000** if you need tighter clusters and can tolerate ~27% empty clusters.
 - Beyond 200K, over a third of clusters are empty — diminishing returns.
 
+## GPU-accelerated k selection
+
+If you have a CUDA GPU, use `scripts/k_selection_gpu.py` for significantly faster sweeps:
+
+```bash
+python scripts/k_selection_gpu.py \
+    --pq-codes data/pq_codes.npy \
+    --encoder models/encoder.joblib \
+    --k-values 10000 50000 100000 200000
+```
+
+The GPU path uses Triton kernels for the predict step and is typically 8-10x faster than CPU for large k values.
+
 ## Scaling estimates
 
 Fit time scales linearly with both n (number of molecules) and k:
 
-| Scenario | Estimated Fit Time |
+| Scenario | CPU Fit Time |
 |---|---|
 | 1B molecules, k=50K | ~2.6 days |
 | 1B molecules, k=100K | ~5.2 days |

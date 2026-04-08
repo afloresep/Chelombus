@@ -18,6 +18,12 @@
 
 ::: chelombus.clustering.PyQKmeans.PQKMeans
 
+## Visualization
+
+::: chelombus.utils.visualization.create_tmap
+
+::: chelombus.utils.visualization.representative_tmap
+
 ## Cluster I/O
 
 ::: chelombus.utils.cluster_io
