@@ -18,19 +18,20 @@ SMILES → MQN Fingerprints → PQ Encoding → PQk-means Clustering → Nested 
 
 - **Scalability**: Stream billions of molecules without loading everything into memory
 - **Efficiency**: Compress 42-dimensional MQN vectors to 6-byte PQ codes (28x compression)
-- **Visualization**: Navigate from global overview to individual molecules in two clicks
-- **Accessibility**: Runs on commodity hardware (tested: AMD Ryzen 7, 64GB RAM)
+- **GPU Acceleration**: Full CUDA pipeline via PyTorch + Triton kernels for fit, transform, and predict
+- **Visualization**: Interactive TMAPs powered by [tmap2](https://github.com/afloresep/tmap2) — navigate from global overview to individual molecules in two clicks
+- **Accessibility**: Runs on commodity hardware (tested: AMD Ryzen 7, 64GB RAM); GPU optional
 
 ## Project Structure
 
 ```
 chelombus/
 ├── chelombus/
-│   ├── encoder/          # Product Quantization encoder
-│   ├── clustering/       # PQk-means wrapper
+│   ├── encoder/          # Product Quantization encoder (CPU + GPU)
+│   ├── clustering/       # PQk-means wrapper + Triton kernels
 │   ├── streamer/         # Memory-efficient data streaming
-│   └── utils/            # Fingerprints, visualization, helpers
-├── scripts/              # Pipeline scripts
+│   └── utils/            # Fingerprints, visualization, cluster I/O
+├── scripts/              # Pipeline and benchmark scripts
 ├── examples/             # Tutorial notebooks
 └── tests/                # Unit tests
 ```
