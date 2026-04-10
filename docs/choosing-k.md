@@ -21,13 +21,13 @@ The script supports **checkpointing** — results are saved to the CSV after eac
 
 Benchmark configuration: AMD Ryzen 7, 64GB RAM, 10 PQk-means iterations per k.
 
-| k | Avg Distance | Empty Clusters | Median Cluster Size | Fit Time |
-|---:|---:|---:|---:|---:|
-| 10,000 | 3.65 | 6.8% | 8,945 | 1.3 h |
-| 25,000 | 2.74 | 13.3% | 3,673 | 3.1 h |
-| 50,000 | 2.17 | 19.6% | 1,876 | 6.2 h |
-| 100,000 | 1.69 | 26.6% | 956 | 12.6 h |
-| 200,000 | 1.30 | 34.7% | 492 | 26.4 h |
+| k | Avg Distance | Empty Clusters | Median Cluster Size | CPU Fit Time | GPU Fit Time |
+|---:|---:|---:|---:|---:|---:|
+| 10,000 | 3.65 | 6.8% | 8,945 | 1.3 h | 5.6 min |
+| 25,000 | 2.74 | 13.3% | 3,673 | 3.1 h | 8.8 min |
+| 50,000 | 2.17 | 19.6% | 1,876 | 6.2 h | 23.5 min |
+| 100,000 | 1.69 | 26.6% | 956 | 12.6 h | 45.8 min |
+| 200,000 | 1.30 | 34.7% | 492 | 26.4 h | 1.5 h |
 
 ## How to interpret these metrics
 
