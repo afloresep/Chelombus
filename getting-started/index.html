@@ -23,7 +23,7 @@
       
       
       <link rel="icon" href="../assets/images/favicon.png">
-      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.6">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.5">
     
     
       
@@ -776,7 +776,7 @@
 <p>The <code>pqkmeans</code> library is not currently supported on Apple Silicon Macs. Clustering functionality requires an x86_64 system.</p>
 </div>
 <h2 id="quick-start">Quick Start<a class="headerlink" href="#quick-start" title="Permanent link">&para;</a></h2>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="kn">from</span> <span class="nn">chelombus</span> <span class="kn">import</span> <span class="n">DataStreamer</span><span class="p">,</span> <span class="n">FingerprintCalculator</span><span class="p">,</span> <span class="n">PQEncoder</span><span class="p">,</span> <span class="n">PQKMeans</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">chelombus</span><span class="w"> </span><span class="kn">import</span> <span class="n">DataStreamer</span><span class="p">,</span> <span class="n">FingerprintCalculator</span><span class="p">,</span> <span class="n">PQEncoder</span><span class="p">,</span> <span class="n">PQKMeans</span>
 <a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>
 <a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="c1"># 1. Stream SMILES in chunks</span>
 <a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="n">streamer</span> <span class="o">=</span> <span class="n">DataStreamer</span><span class="p">()</span>
@@ -847,8 +847,8 @@
 <h2 id="visualization">Visualization<a class="headerlink" href="#visualization" title="Permanent link">&para;</a></h2>
 <p>Chelombus uses <a href="https://github.com/afloresep/tmap2">tmap2</a> for interactive TMAP visualizations.</p>
 <h3 id="from-python">From Python<a class="headerlink" href="#from-python" title="Permanent link">&para;</a></h3>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="kn">from</span> <span class="nn">chelombus</span> <span class="kn">import</span> <span class="n">sample_from_cluster</span>
-<a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="kn">from</span> <span class="nn">chelombus.utils.visualization</span> <span class="kn">import</span> <span class="n">create_tmap</span><span class="p">,</span> <span class="n">representative_tmap</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">chelombus</span><span class="w"> </span><span class="kn">import</span> <span class="n">sample_from_cluster</span>
+<a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">chelombus.utils.visualization</span><span class="w"> </span><span class="kn">import</span> <span class="n">create_tmap</span><span class="p">,</span> <span class="n">representative_tmap</span>
 <a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a>
 <a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a><span class="c1"># Visualize molecules from a cluster</span>
 <a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a><span class="n">df</span> <span class="o">=</span> <span class="n">sample_from_cluster</span><span class="p">(</span><span class="s1">&#39;results/&#39;</span><span class="p">,</span> <span class="n">cluster_id</span><span class="o">=</span><span class="mi">42</span><span class="p">,</span> <span class="n">n</span><span class="o">=</span><span class="mi">1000</span><span class="p">)</span>
