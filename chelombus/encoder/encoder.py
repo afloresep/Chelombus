@@ -52,7 +52,7 @@ class PQEncoder(PQEncoderBase):
     @property
     def is_trained(self) -> bool: return self.encoder_is_trained
 
-    def fit(self, X_train:NDArray, verbose:int=1, device:str='cpu', **kwargs)->None:
+    def fit(self, X_train:NDArray, verbose:int=1, device:str='auto', **kwargs)->None:
         """ KMeans fitting of every subvector matrix from the X_train matrix. Populates
         the codebook by storing the cluster centers of every subvector
 
@@ -65,7 +65,7 @@ class PQEncoder(PQEncoderBase):
            X_train(np.array): Input matrix to train the encoder.
            verbose(int): Level of verbosity. Default is 1
            device: 'cpu' for sklearn KMeans, 'gpu' for torch-based KMeans on CUDA,
-                   'auto' to pick GPU if available. Default is 'cpu'.
+                   'auto' picks GPU when available. Default is 'auto'.
            **kwargs: Optional keyword arguments passed to the underlying KMeans `fit()` function
                      (only used on the CPU path).
         """
@@ -73,10 +73,10 @@ class PQEncoder(PQEncoderBase):
         assert X_train.ndim == 2, "The input can only be a matrix (X.ndim == 2)"
         N, D = X_train.shape # N number of input vectors, D dimension of the vectors
         assert self.k < N, "the number of training vectors (N for N,D = X_train.shape) should be more than the number of centroids (K)"
-        assert D % self.m == 0, f"Vector (fingeprint) dimension should be divisible by the number of subvectors (m). Got {D} / {self.m}"
+        assert D % self.m == 0, f"Vector (fingerprint) dimension should be divisible by the number of subvectors (m). Got {D} / {self.m}"
         self.D_subvector = int(D / self.m) # Dimension of the subvector.
         self.og_D = D # We save the original dimensions of the input vector (fingerprint) for later use
-        assert self.encoder_is_trained == False, "Encoder can only be fitted once"
+        assert not self.encoder_is_trained, "Encoder can only be fitted once"
 
         self.codewords= np.zeros((self.m, self.k, self.D_subvector), dtype=np.float32)
 
@@ -225,7 +225,7 @@ class PQEncoder(PQEncoderBase):
                         for the corresponding subvector.
         """
 
-        assert self.encoder_is_trained == True, "PQEncoder must be trained before calling transform"
+        assert self.encoder_is_trained, "PQEncoder must be trained before calling transform"
 
         use_gpu = (device == 'gpu') or (device == 'auto' and _GPU_AVAILABLE)
         if use_gpu:
@@ -302,18 +302,18 @@ class PQEncoder(PQEncoderBase):
         del cw_gpu
         return pq_codes
 
-    def fit_transform(self, X:NDArray, verbose:int=1, device:str='cpu', **kwargs) -> NDArray:
+    def fit_transform(self, X:NDArray, verbose:int=1, device:str='auto', **kwargs) -> NDArray:
         """Fit and transforms the input matrix `X` into its PQ-codes
 
         The encoder is trained on the matrix and then for each sample in X,
           the input vector is split into `m` equal-sized vectors subvectors composed
-          byt the index of the closest centroid. Returns a compact representation of X,
+          by the index of the closest centroid. Returns a compact representation of X,
           where each sample is encoded as a sequence of centroid indices (i.e PQcodes)
 
         Args:
             X (np.array): Input data matrix of shape (n_samples, n_features)
             verbose (int, optional): Level of verbosity. Defaults to 1.
-            device: 'cpu', 'gpu', or 'auto'. Default is 'cpu'.
+            device: 'cpu', 'gpu', or 'auto' (picks GPU when available). Default is 'auto'.
             **kwargs: Optional keyword. These arguments will be passed to the underlying KMeans
             predict() function.
 

@@ -8,6 +8,8 @@ Reference:
         year = {2017},
     }
 """
+from typing import Literal, overload
+
 import joblib
 from pathlib import Path
 import numpy as np
@@ -226,6 +228,10 @@ class PQKMeans:
         self._fit_labels = None
         return self
 
+    @overload
+    def _fit_gpu(self, X_train: np.ndarray, return_labels: Literal[False] = False) -> None: ...
+    @overload
+    def _fit_gpu(self, X_train: np.ndarray, return_labels: Literal[True]) -> np.ndarray: ...
     def _fit_gpu(self, X_train: np.ndarray, return_labels: bool = False) -> np.ndarray | None:
         """GPU-accelerated training: Triton assignment + CPU centroid update."""
         import time
