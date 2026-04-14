@@ -136,7 +136,7 @@ def predict_gpu(
         verbose: Print per-batch progress (useful for billion-scale runs).
 
     Returns:
-        (N,) int64 cluster labels (same dtype as CPU path).
+        (N,) int32 cluster labels (same dtype as CPU path).
     """
     import time as _time
 
@@ -157,7 +157,7 @@ def predict_gpu(
     if batch_size <= 0:
         batch_size = _auto_batch_size(N, M)
 
-    labels_out = np.empty(N, dtype=np.int64)
+    labels_out = np.empty(N, dtype=np.int32)
 
     # Adaptive BLOCK_K: larger M means more registers per subvector,
     # so reduce BLOCK_K to avoid register spill.

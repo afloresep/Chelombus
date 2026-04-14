@@ -51,7 +51,7 @@ def _predict_numba(pq_codes, centers, dtables):
     n = pq_codes.shape[0]
     m = pq_codes.shape[1]
     n_centers = centers.shape[0]
-    labels = np.empty(n, dtype=np.int64)
+    labels = np.empty(n, dtype=np.int32)
     for i in prange(n):
         best_dist = np.inf
         best_label = 0
@@ -62,7 +62,7 @@ def _predict_numba(pq_codes, centers, dtables):
             if dist < best_dist:
                 best_dist = dist
                 best_label = c
-        labels[i] = best_label
+        labels[i] = np.int32(best_label)
     return labels
 
 
@@ -101,7 +101,7 @@ def _update_centers(
         hist = np.zeros(K * k_cb, dtype=np.int64)
         for start in range(0, N, chunk_size):
             end = min(start + chunk_size, N)
-            flat = (labels[start:end] * k_cb
+            flat = (labels[start:end].astype(np.int64) * k_cb
                     + pq_codes[start:end, s].astype(np.int64))
             hist += np.bincount(flat, minlength=K * k_cb)
 
