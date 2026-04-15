@@ -188,6 +188,73 @@ def stage_a_encoder_bench() -> None:
         log("")
 
 
+# ---------------------------------------------------------------------------
+# Stage B: streaming encode (PREP — not in the main report tables)
+# ---------------------------------------------------------------------------
+
+def _all_pq_files_exist() -> bool:
+    return all(pq_codes_path(tag).exists() for _, tag in PQ_SLICES)
+
+
+def stage_b_streaming_encode() -> None:
+    log("=" * 72)
+    log("Stage B — streaming encode (PREP)")
+    log("=" * 72)
+
+    if _all_pq_files_exist():
+        log("[Stage B] SKIP (all pq_codes_*.npy already on disk)")
+        return
+
+    downstream_enc_path = encoder_path(DOWNSTREAM_ENCODER_N)
+    if not downstream_enc_path.exists():
+        raise FileNotFoundError(
+            f"Downstream encoder missing at {downstream_enc_path}. "
+            f"Run Stage A first (at least up to N_train={DOWNSTREAM_ENCODER_N})."
+        )
+
+    log(f"[Stage B] loading downstream encoder {downstream_enc_path}")
+    enc = PQEncoder.load(downstream_enc_path)
+    assert enc.is_trained
+
+    total_rows = PQ_SLICES[-1][0]  # 1B
+    n_chunks = total_rows // CHUNK_SIZE
+
+    log(f"[Stage B] allocating pq_full shape=({total_rows:,}, {PQ_M}) uint8 "
+        f"= {total_rows * PQ_M / 1e9:.1f} GB")
+    pq_full = np.empty((total_rows, PQ_M), dtype=np.uint8)
+
+    t0 = time.perf_counter()
+    for i in range(n_chunks):
+        p = chunk_path(i)
+        if not p.exists():
+            raise FileNotFoundError(p)
+        mqn = np.load(p)
+        assert mqn.shape == (CHUNK_SIZE, 42)
+        codes = enc.transform(mqn, verbose=0, device="auto")
+        start = i * CHUNK_SIZE
+        pq_full[start:start + CHUNK_SIZE] = codes
+        del mqn, codes
+        if (i + 1) % 10 == 0 or i == n_chunks - 1:
+            elapsed = time.perf_counter() - t0
+            rate = (i + 1) * CHUNK_SIZE / elapsed
+            log(f"  encoded chunk {i + 1}/{n_chunks}  "
+                f"elapsed={fmt_time(elapsed)}  rate={rate / 1e6:.1f} M/s")
+    total_elapsed = time.perf_counter() - t0
+    log(f"[Stage B] stream-encode complete in {fmt_time(total_elapsed)}")
+
+    for n_rows, tag in PQ_SLICES:
+        out = pq_codes_path(tag)
+        if out.exists():
+            log(f"  [skip] {out} already exists")
+            continue
+        log(f"  saving {out} ({n_rows * PQ_M / 1e9:.2f} GB)")
+        np.save(out, pq_full[:n_rows])
+
+    del pq_full, enc
+    gc.collect()
+    log("")
+
+
 def main() -> None:
     _ensure_dirs()
     import torch
@@ -197,6 +264,7 @@ def main() -> None:
             f"VRAM_total={torch.cuda.get_device_properties(0).total_memory / 1e9:.1f} GB")
 
     stage_a_encoder_bench()
+    stage_b_streaming_encode()
 
 
 if __name__ == "__main__":
