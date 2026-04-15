@@ -368,6 +368,138 @@ def stage_c_sanity_test() -> None:
     log("")
 
 
+# ---------------------------------------------------------------------------
+# Stage D: main grid (N, K) → fit + predict per cell
+# ---------------------------------------------------------------------------
+
+def _cell_summary_path(n_tag: str, k_tag: str) -> Path:
+    d = RESULTS_DIR / f"N{n_tag}_K{k_tag}"
+    d.mkdir(parents=True, exist_ok=True)
+    return d / "summary.json"
+
+
+def _run_cell(enc: PQEncoder, pq: np.ndarray, n_rows: int, n_tag: str,
+              K: int, k_tag: str) -> dict:
+    reset_gpu_vram()
+    clust = PQKMeans(enc, k=K, iteration=PQ_ITERATIONS, tol=1e-3, verbose=True)
+    fit_buf = io.StringIO()
+
+    with RSSSampler() as rss_span:
+        with contextlib.redirect_stdout(fit_buf):
+            t0 = time.perf_counter()
+            clust.fit(pq, device="gpu")
+            fit_seconds = time.perf_counter() - t0
+        fit_vram = gpu_peak_vram_gb()
+        reset_gpu_vram()
+
+        t0 = time.perf_counter()
+        labels = clust.predict(pq, device="gpu")
+        predict_seconds = time.perf_counter() - t0
+        predict_vram = gpu_peak_vram_gb()
+
+    iters = parse_iters_from_log(fit_buf.getvalue())
+
+    lp = labels_path(n_tag, k_tag)
+    np.save(lp, labels)
+    stats = cluster_stats(labels, K)
+
+    summary = {
+        "stage": "D",
+        "N": n_rows,
+        "N_tag": n_tag,
+        "K": K,
+        "K_tag": k_tag,
+        "fit_seconds": round(fit_seconds, 2),
+        "predict_seconds": round(predict_seconds, 2),
+        "total_clustering_seconds": round(fit_seconds + predict_seconds, 2),
+        "fit_peak_vram_gb": round(fit_vram, 3),
+        "predict_peak_vram_gb": round(predict_vram, 3),
+        "rss_start_gb": round(rss_span.start_gb, 3),
+        "rss_peak_gb": round(rss_span.peak_gb, 3),
+        "rss_delta_gb": round(rss_span.delta_gb, 3),
+        "iters_to_converge": iters,
+        "labels_path": str(lp),
+        **stats,
+    }
+
+    del clust, labels
+    gc.collect()
+    reset_gpu_vram()
+    return summary
+
+
+def stage_d_main_grid() -> None:
+    log("=" * 72)
+    log("Stage D — main grid (12 cells)")
+    log("=" * 72)
+
+    downstream_enc_path = encoder_path(DOWNSTREAM_ENCODER_N)
+    enc = PQEncoder.load(downstream_enc_path)
+
+    for n_rows, n_tag in PQ_SLICES:
+        cells_for_n = [
+            (K, k_tag, _cell_summary_path(n_tag, k_tag)) for K, k_tag in K_VALUES
+        ]
+        if all(p.exists() for _, _, p in cells_for_n):
+            log(f"[Stage D] N={n_tag}: SKIP (all K done)")
+            continue
+
+        pq_path = pq_codes_path(n_tag)
+        if not pq_path.exists():
+            raise FileNotFoundError(f"Stage B output missing: {pq_path}")
+        log(f"[Stage D] N={n_tag}: loading {pq_path}")
+        pq = np.load(pq_path)
+        assert pq.shape == (n_rows, PQ_M)
+
+        for K, k_tag, summary_path in cells_for_n:
+            if summary_path.exists():
+                log(f"  (N={n_tag}, K={k_tag}): SKIP (summary.json exists)")
+                continue
+            log("-" * 72)
+            log(f"  (N={n_tag}, K={k_tag}): fit + predict")
+            summary = _run_cell(enc, pq, n_rows, n_tag, K, k_tag)
+            summary_path.write_text(json.dumps(summary, indent=2))
+            log(f"    wall fit={summary['fit_seconds']}s  "
+                f"predict={summary['predict_seconds']}s  "
+                f"total={summary['total_clustering_seconds']}s")
+            log(f"    vram fit={summary['fit_peak_vram_gb']} GB  "
+                f"predict={summary['predict_peak_vram_gb']} GB")
+            log(f"    rss peak={summary['rss_peak_gb']} GB  "
+                f"delta={summary['rss_delta_gb']} GB")
+            log(f"    iters={summary['iters_to_converge']}  "
+                f"largest={summary['largest_cluster']}")
+            log(f"    summary → {summary_path}")
+
+        del pq
+        gc.collect()
+
+
+def _write_combined_summary() -> None:
+    combined: dict[str, object] = {
+        "encoder_bench": {},
+        "sanity": None,
+        "main_grid": {},
+    }
+    for n_train in ENCODER_TRAIN_SIZES:
+        p = ENCODER_BENCH_DIR / f"N{_n_tag(n_train)}.json"
+        if p.exists():
+            combined["encoder_bench"][_n_tag(n_train)] = json.loads(p.read_text())
+
+    sanity_path = RESULTS_DIR / "sanity_fit_vs_fitpredict.json"
+    if sanity_path.exists():
+        combined["sanity"] = json.loads(sanity_path.read_text())
+
+    for n_rows, n_tag in PQ_SLICES:
+        for K, k_tag in K_VALUES:
+            p = RESULTS_DIR / f"N{n_tag}_K{k_tag}" / "summary.json"
+            if p.exists():
+                combined["main_grid"][f"N{n_tag}_K{k_tag}"] = json.loads(p.read_text())
+
+    out = RESULTS_DIR / "mqn_scale_summary.json"
+    out.write_text(json.dumps(combined, indent=2))
+    log(f"[Stage D] combined summary → {out}")
+
+
 def main() -> None:
     _ensure_dirs()
     import torch
@@ -379,6 +511,8 @@ def main() -> None:
     stage_a_encoder_bench()
     stage_b_streaming_encode()
     stage_c_sanity_test()
+    stage_d_main_grid()
+    _write_combined_summary()
 
 
 if __name__ == "__main__":
