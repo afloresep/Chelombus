@@ -18,7 +18,9 @@ for the full design.
 """
 from __future__ import annotations
 
+import contextlib
 import gc
+import io
 import json
 import sys
 import time
@@ -35,9 +37,11 @@ from chelombus.clustering.PyQKmeans import PQKMeans  # noqa: E402
 
 from _mqn_scale_utils import (  # noqa: E402
     RSSSampler,
+    cluster_stats,
     fmt_time,
     gpu_peak_vram_gb,
     log,
+    parse_iters_from_log,
     reset_gpu_vram,
 )
 
@@ -255,6 +259,115 @@ def stage_b_streaming_encode() -> None:
     log("")
 
 
+# ---------------------------------------------------------------------------
+# Stage C: sanity test — fit_predict vs fit + predict
+# ---------------------------------------------------------------------------
+
+def _timed_fit_predict(enc: PQEncoder, pq: np.ndarray, K: int) -> dict:
+    reset_gpu_vram()
+    clust = PQKMeans(enc, k=K, iteration=PQ_ITERATIONS, tol=1e-3, verbose=True)
+    buf = io.StringIO()
+    t0 = time.perf_counter()
+    with RSSSampler() as rss, contextlib.redirect_stdout(buf):
+        labels = clust.fit_predict(pq, device="gpu")
+    total = time.perf_counter() - t0
+    vram = gpu_peak_vram_gb()
+    iters = parse_iters_from_log(buf.getvalue())
+    del clust, labels
+    gc.collect()
+    reset_gpu_vram()
+    return {
+        "total_seconds": round(total, 2),
+        "peak_vram_gb": round(vram, 3),
+        "rss_start_gb": round(rss.start_gb, 3),
+        "rss_peak_gb": round(rss.peak_gb, 3),
+        "rss_delta_gb": round(rss.delta_gb, 3),
+        "iters_to_converge": iters,
+    }
+
+
+def _timed_fit_then_predict(enc: PQEncoder, pq: np.ndarray, K: int) -> dict:
+    reset_gpu_vram()
+    clust = PQKMeans(enc, k=K, iteration=PQ_ITERATIONS, tol=1e-3, verbose=True)
+    fit_buf = io.StringIO()
+    with RSSSampler() as rss_fit, contextlib.redirect_stdout(fit_buf):
+        t0 = time.perf_counter()
+        clust.fit(pq, device="gpu")
+        fit_seconds = time.perf_counter() - t0
+    fit_vram = gpu_peak_vram_gb()
+    iters = parse_iters_from_log(fit_buf.getvalue())
+
+    reset_gpu_vram()
+    with RSSSampler() as rss_predict:
+        t0 = time.perf_counter()
+        labels = clust.predict(pq, device="gpu")
+        predict_seconds = time.perf_counter() - t0
+    predict_vram = gpu_peak_vram_gb()
+
+    del clust, labels
+    gc.collect()
+    reset_gpu_vram()
+    return {
+        "fit_seconds": round(fit_seconds, 2),
+        "predict_seconds": round(predict_seconds, 2),
+        "total_seconds": round(fit_seconds + predict_seconds, 2),
+        "fit_peak_vram_gb": round(fit_vram, 3),
+        "predict_peak_vram_gb": round(predict_vram, 3),
+        "fit_rss_start_gb": round(rss_fit.start_gb, 3),
+        "fit_rss_peak_gb": round(rss_fit.peak_gb, 3),
+        "fit_rss_delta_gb": round(rss_fit.delta_gb, 3),
+        "predict_rss_start_gb": round(rss_predict.start_gb, 3),
+        "predict_rss_peak_gb": round(rss_predict.peak_gb, 3),
+        "predict_rss_delta_gb": round(rss_predict.delta_gb, 3),
+        "iters_to_converge": iters,
+    }
+
+
+def stage_c_sanity_test() -> None:
+    log("=" * 72)
+    log(f"Stage C — sanity test (N={SANITY_N_TAG}, K={SANITY_K})")
+    log("=" * 72)
+
+    sanity_path = RESULTS_DIR / "sanity_fit_vs_fitpredict.json"
+    if sanity_path.exists():
+        log("[Stage C] SKIP (sanity_fit_vs_fitpredict.json already exists)")
+        return
+
+    downstream_enc_path = encoder_path(DOWNSTREAM_ENCODER_N)
+    enc = PQEncoder.load(downstream_enc_path)
+    pq_path = pq_codes_path(SANITY_N_TAG)
+    if not pq_path.exists():
+        raise FileNotFoundError(f"Stage B output missing: {pq_path}")
+
+    log(f"[Stage C] loading {pq_path}")
+    pq = np.load(pq_path)
+    assert pq.shape == (SANITY_N, PQ_M)
+
+    log("[Stage C] Path A: fit_predict")
+    path_a = _timed_fit_predict(enc, pq, SANITY_K)
+    log(f"  total={path_a['total_seconds']}s  vram={path_a['peak_vram_gb']} GB  "
+        f"rss_delta={path_a['rss_delta_gb']} GB")
+
+    log("[Stage C] Path B: fit then predict")
+    path_b = _timed_fit_then_predict(enc, pq, SANITY_K)
+    log(f"  fit={path_b['fit_seconds']}s  predict={path_b['predict_seconds']}s  "
+        f"fit_vram={path_b['fit_peak_vram_gb']} GB  "
+        f"predict_vram={path_b['predict_peak_vram_gb']} GB")
+
+    sanity = {
+        "N": SANITY_N,
+        "K": SANITY_K,
+        "fit_predict": path_a,
+        "fit_then_predict": path_b,
+    }
+    sanity_path.write_text(json.dumps(sanity, indent=2))
+    log(f"[Stage C] summary → {sanity_path}")
+
+    del enc, pq
+    gc.collect()
+    log("")
+
+
 def main() -> None:
     _ensure_dirs()
     import torch
@@ -265,6 +378,7 @@ def main() -> None:
 
     stage_a_encoder_bench()
     stage_b_streaming_encode()
+    stage_c_sanity_test()
 
 
 if __name__ == "__main__":
