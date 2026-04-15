@@ -220,29 +220,57 @@ def stage_b_streaming_encode() -> None:
     enc = PQEncoder.load(downstream_enc_path)
     assert enc.is_trained
 
-    total_rows = PQ_SLICES[-1][0]  # 1B
-    n_chunks = total_rows // CHUNK_SIZE
+    target_rows = PQ_SLICES[-1][0]  # 1B
+
+    # Scan chunks to reach target_rows. Chunks are not guaranteed to all
+    # contain exactly CHUNK_SIZE rows — e.g. enamine-chunk_00095.npy is a
+    # known short chunk. We pre-scan so we know exactly how big pq_full
+    # needs to be.
+    log(f"[Stage B] scanning chunks to cover {target_rows:,} rows")
+    chunk_sizes: list[int] = []
+    cum = 0
+    i = 0
+    while cum < target_rows:
+        p = chunk_path(i)
+        if not p.exists():
+            raise FileNotFoundError(
+                f"Ran out of chunks before reaching {target_rows:,} rows: {p}"
+            )
+        arr = np.load(p, mmap_mode="r")
+        if arr.ndim != 2 or arr.shape[1] != 42:
+            raise AssertionError(f"chunk {p} has unexpected shape {arr.shape}")
+        n = int(arr.shape[0])
+        chunk_sizes.append(n)
+        cum += n
+        del arr
+        i += 1
+    n_chunks = len(chunk_sizes)
+    total_rows = cum
+    log(f"[Stage B] will stream {n_chunks} chunks, total_rows={total_rows:,} "
+        f"(excess over {target_rows:,}: {total_rows - target_rows:,})")
 
     log(f"[Stage B] allocating pq_full shape=({total_rows:,}, {PQ_M}) uint8 "
-        f"= {total_rows * PQ_M / 1e9:.1f} GB")
+        f"= {total_rows * PQ_M / 1e9:.2f} GB")
     pq_full = np.empty((total_rows, PQ_M), dtype=np.uint8)
 
     t0 = time.perf_counter()
+    offset = 0
     for i in range(n_chunks):
         p = chunk_path(i)
-        if not p.exists():
-            raise FileNotFoundError(p)
         mqn = np.load(p)
-        assert mqn.shape == (CHUNK_SIZE, 42)
+        assert mqn.shape[1] == 42
+        n = mqn.shape[0]
         codes = enc.transform(mqn, verbose=0, device="auto")
-        start = i * CHUNK_SIZE
-        pq_full[start:start + CHUNK_SIZE] = codes
+        pq_full[offset:offset + n] = codes
+        offset += n
         del mqn, codes
         if (i + 1) % 10 == 0 or i == n_chunks - 1:
             elapsed = time.perf_counter() - t0
-            rate = (i + 1) * CHUNK_SIZE / elapsed
+            rate = offset / elapsed
             log(f"  encoded chunk {i + 1}/{n_chunks}  "
-                f"elapsed={fmt_time(elapsed)}  rate={rate / 1e6:.1f} M/s")
+                f"elapsed={fmt_time(elapsed)}  rate={rate / 1e6:.1f} M/s  "
+                f"offset={offset:,}")
+    assert offset == total_rows, f"offset={offset} != total_rows={total_rows}"
     total_elapsed = time.perf_counter() - t0
     log(f"[Stage B] stream-encode complete in {fmt_time(total_elapsed)}")
 
