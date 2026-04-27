@@ -314,12 +314,16 @@ class PQKMeans:
             verbose=self.verbose,
         )
 
-    def predict(self, X: np.ndarray, device: str = 'auto') -> np.ndarray:
+    def predict(self, X: np.ndarray, device: str = 'auto',
+                batch_size: int = 0) -> np.ndarray:
         """Predict cluster labels for PQ codes.
 
         Args:
             X: PQ codes of shape (n_samples, n_subvectors), dtype uint8
             device: 'cpu' for Numba, 'gpu' for Triton/CUDA, 'auto' to pick GPU if available.
+            batch_size: GPU-only. Max points per GPU batch. 0 (default) =
+                auto-detect from free VRAM. Set a manual cap to bound peak
+                VRAM on large N (e.g. N > 1B on 16 GB cards).
 
         Returns:
             Cluster labels of shape (n_samples,)
@@ -335,7 +339,7 @@ class PQKMeans:
         if use_gpu:
             codes = np.asarray(X, dtype=np.uint8)
             centers = np.asarray(self._centers_u8, dtype=np.uint8)
-            return predict_gpu(codes, centers, self._dtables)
+            return predict_gpu(codes, centers, self._dtables, batch_size=batch_size)
 
         codes = np.asarray(X, dtype=self.encoder.codebook_dtype)
         return _predict_numba(codes, self._centers_u8, self._dtables)

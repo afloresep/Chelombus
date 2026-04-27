@@ -164,7 +164,7 @@ class PQEncoder(PQEncoderBase):
         for subvector_idx in iterable:
             sub_slice = X_f32[:, subvector_dim * subvector_idx : subvector_dim * (subvector_idx + 1)]
             X_gpu = torch.from_numpy(sub_slice).cuda()
-            # Precompute ||x||² (stays constant across iterations)
+            # Precompute ||x||^2 (stays constant across iterations)
             x_sq = (X_gpu * X_gpu).sum(dim=1)  # (N,)
             B = self._gpu_encoder_batch_size(N, self.k)
 
