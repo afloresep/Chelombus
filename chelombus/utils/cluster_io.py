@@ -42,7 +42,7 @@ def _check_duckdb_available() -> None:
     except ImportError:
         raise ImportError(
             "duckdb is required for cluster I/O operations. "
-            "Install it with: pip install chelombus[io] or pip install duckdb"
+            "Install it with: pip install duckdb"
         )
 
 
@@ -70,6 +70,17 @@ def _validate_results_dir(results_dir: Union[str, Path]) -> Path:
         raise ValueError(f"No parquet files found in: {results_dir}")
 
     return path
+
+
+def _sql_string(value: Union[str, Path]) -> str:
+    """Quote a path as a SQL string literal (handles paths containing ')."""
+    escaped = str(value).replace("'", "''")
+    return f"'{escaped}'"
+
+
+def _parquet_source(path: Path) -> str:
+    """SQL source for all chunked parquet files in a results directory."""
+    return _sql_string(path / "*.parquet")
 
 
 def _quote_identifier(identifier: str) -> str:
@@ -114,7 +125,7 @@ def query_cluster(
     import duckdb
 
     path = _validate_results_dir(results_dir)
-    glob_pattern = str(path / "*.parquet")
+    source = _parquet_source(path)
     quoted_cluster_column = _quote_identifier(cluster_column)
 
     # Build column selection
@@ -125,7 +136,7 @@ def query_cluster(
 
     query = f"""
         SELECT {col_str}
-        FROM '{glob_pattern}'
+        FROM {source}
         WHERE {quoted_cluster_column} = {cluster_id}
     """
 
@@ -143,6 +154,7 @@ def export_cluster(
     output_path: Union[str, Path],
     cluster_column: str = "cluster_id",
     columns: Optional[List[str]] = None,
+    smiles_column: str = "smiles",
 ) -> int:
     """Export a single cluster to a file.
 
@@ -155,6 +167,7 @@ def export_cluster(
         output_path: Output file path. Must end with .parquet or .csv.
         cluster_column: Name of the column containing cluster IDs.
         columns: Optional list of columns to export. Default exports all columns.
+        smiles_column: Column written to .smi/.txt outputs.
 
     Returns:
         Number of molecules exported.
@@ -172,16 +185,16 @@ def export_cluster(
 
     path = _validate_results_dir(results_dir)
     output_path = Path(output_path)
-    glob_pattern = str(path / "*.parquet")
+    source = _parquet_source(path)
     quoted_cluster_column = _quote_identifier(cluster_column)
 
     # Build column selection
-    col_str = ", ".join(columns) if columns else "*"
+    col_str = ", ".join(_quote_identifier(col) for col in columns) if columns else "*"
 
     # First get the count
     count_query = f"""
         SELECT COUNT(*) as cnt
-        FROM '{glob_pattern}'
+        FROM {source}
         WHERE {quoted_cluster_column} = {cluster_id}
     """
     count = duckdb.execute(count_query).fetchone()[0] # type: ignore
@@ -199,26 +212,26 @@ def export_cluster(
         export_query = f"""
             COPY (
                 SELECT {col_str}
-                FROM '{glob_pattern}'
+                FROM {source}
                 WHERE {quoted_cluster_column} = {cluster_id}
-            ) TO '{output_path}' (FORMAT PARQUET)
+            ) TO {_sql_string(output_path)} (FORMAT PARQUET)
         """
     elif suffix == ".csv":
         export_query = f"""
             COPY (
                 SELECT {col_str}
-                FROM '{glob_pattern}'
+                FROM {source}
                 WHERE {quoted_cluster_column} = {cluster_id}
-            ) TO '{output_path}' (FORMAT CSV, HEADER)
+            ) TO {_sql_string(output_path)} (FORMAT CSV, HEADER)
         """
     elif suffix in (".smi", ".txt"):
         # For SMILES files, export only the smiles column without header
         export_query = f"""
             COPY (
-                SELECT smiles
-                FROM '{glob_pattern}'
+                SELECT {_quote_identifier(smiles_column)}
+                FROM {source}
                 WHERE {quoted_cluster_column} = {cluster_id}
-            ) TO '{output_path}' (FORMAT CSV, HEADER FALSE)
+            ) TO {_sql_string(output_path)} (FORMAT CSV, HEADER FALSE)
         """
     else:
         raise ValueError(
@@ -236,6 +249,8 @@ def export_all_clusters(
     results_dir: Union[str, Path],
     output_dir: Union[str, Path],
     format: str = "parquet",
+    cluster_column: str = "cluster_id",
+    smiles_column: str = "smiles",
 ) -> dict[int, int]:
     """Export all clusters to individual files using partitioned writes.
 
@@ -260,8 +275,8 @@ def export_all_clusters(
         results_dir: Path to directory containing chunked parquet files.
         output_dir: Output directory for partitioned cluster files.
         format: Output format, either 'parquet' or 'csv'. Default 'parquet'.
-        batch_size: Number of clusters to process per batch for progress reporting.
-            Does not affect memory usage (DuckDB handles streaming internally).
+        cluster_column: Name of the column containing cluster IDs.
+        smiles_column: Name of the column containing SMILES.
 
     Returns:
         Dictionary mapping cluster_id to molecule count.
@@ -276,24 +291,14 @@ def export_all_clusters(
         >>> print(f"Largest cluster: {max(stats.values())} molecules")
 
     Note:
-        For HPC/SLURM usage, you can process clusters in parallel:
-
-        ```bash
-        # SLURM array job
-        #SBATCH --array=0-99999
-
-        chelombus visualize \\
-            --input clusters/cluster_id=$SLURM_ARRAY_TASK_ID/ \\
-            --output tmaps/cluster_$SLURM_ARRAY_TASK_ID.html
-        ```
+        For HPC/SLURM usage, each array task can read its own partition, e.g.
+        ``clusters/cluster_id=$SLURM_ARRAY_TASK_ID/``.
     """
     _check_duckdb_available()
     import duckdb
-    from tqdm import tqdm
-
     path = _validate_results_dir(results_dir)
     output_path = Path(output_dir)
-    glob_pattern = str(path / "*.parquet")
+    source = _parquet_source(path)
 
     if format not in ("parquet", "csv"):
         raise ValueError(f"Unsupported format: {format}. Use 'parquet' or 'csv'")
@@ -309,11 +314,11 @@ def export_all_clusters(
 
     export_query = f"""
         COPY (
-            SELECT smiles, cluster_id
-            FROM '{glob_pattern}'
-        ) TO '{output_path}' (
+            SELECT {_quote_identifier(smiles_column)}, {_quote_identifier(cluster_column)}
+            FROM {source}
+        ) TO {_sql_string(output_path)} (
             FORMAT {format_str},
-            PARTITION_BY (cluster_id),
+            PARTITION_BY ({_quote_identifier(cluster_column)}),
             OVERWRITE_OR_IGNORE
         )
     """
@@ -323,7 +328,7 @@ def export_all_clusters(
 
     # Get cluster statistics after export
     logger.info("Calculating cluster statistics...")
-    stats = get_cluster_stats(results_dir)
+    stats = get_cluster_stats(results_dir, column=cluster_column)
 
     # Convert to dictionary
     result = dict(zip(stats["cluster_id"], stats["molecule_count"]))
@@ -361,14 +366,14 @@ def get_cluster_stats(
     import duckdb
 
     path = _validate_results_dir(results_dir)
-    glob_pattern = str(path / "*.parquet")
+    source = _parquet_source(path)
     quoted_column = _quote_identifier(column)
 
     query = f"""
         SELECT
             {quoted_column} as cluster_id,
             COUNT(*) as molecule_count
-        FROM '{glob_pattern}'
+        FROM {source}
         GROUP BY {quoted_column}
         ORDER BY {quoted_column}
     """
@@ -384,6 +389,7 @@ def get_cluster_ids(
 
     Args:
         results_dir: Path to directory containing chunked parquet files.
+        cluster_id_column_name: Name of the column containing cluster IDs.
 
     Returns:
         Sorted list of cluster IDs.
@@ -396,11 +402,11 @@ def get_cluster_ids(
     import duckdb
 
     path = _validate_results_dir(results_dir)
-    glob_pattern = str(path / "*.parquet")
+    source = _parquet_source(path)
 
     query = f"""
         SELECT DISTINCT {_quote_identifier(cluster_id_column_name)} 
-        FROM '{glob_pattern}'
+        FROM {source}
         ORDER BY {_quote_identifier(cluster_id_column_name)}
     """
 
@@ -423,9 +429,9 @@ def get_total_molecules(
     import duckdb
 
     path = _validate_results_dir(results_dir)
-    glob_pattern = str(path / "*.parquet")
+    source = _parquet_source(path)
 
-    query = f"SELECT COUNT(*) FROM '{glob_pattern}'"
+    query = f"SELECT COUNT(*) FROM {source}"
     return duckdb.execute(query).fetchone()[0] # type: ignore
 
 
@@ -444,6 +450,7 @@ def query_clusters_batch(
         results_dir: Path to directory containing chunked parquet files.
         cluster_ids: List of cluster IDs to query.
         columns: Optional list of columns to return.
+        cluster_column: Name of the column containing cluster IDs.
 
     Returns:
         DataFrame containing molecules from all specified clusters.
@@ -457,14 +464,14 @@ def query_clusters_batch(
     quoted_cluster_column = _quote_identifier(cluster_column)
 
     path = _validate_results_dir(results_dir)
-    glob_pattern = str(path / "*.parquet")
+    source = _parquet_source(path)
 
-    col_str = ", ".join(columns) if columns else "*"
+    col_str = ", ".join(_quote_identifier(col) for col in columns) if columns else "*"
     ids_str = ", ".join(str(cid) for cid in cluster_ids)
 
     query = f"""
         SELECT {col_str}
-        FROM '{glob_pattern}'
+        FROM {source}
         WHERE {quoted_cluster_column} IN ({ids_str})
     """
 
@@ -476,6 +483,7 @@ def sample_from_cluster(
     cluster_id: int,
     n: int = 100,
     random_state: Optional[int] = None,
+    cluster_column: str = "cluster_id",
 ) -> "pd.DataFrame":
     """Get a random sample of molecules from a cluster.
 
@@ -485,7 +493,9 @@ def sample_from_cluster(
         results_dir: Path to directory containing chunked parquet files.
         cluster_id: The cluster ID to sample from.
         n: Number of molecules to sample.
-        random_state: Random seed for reproducibility.
+        random_state: Random seed. The same seed on the same data returns the
+            same sample.
+        cluster_column: Name of the column containing cluster IDs.
 
     Returns:
         DataFrame with sampled molecules.
@@ -498,18 +508,20 @@ def sample_from_cluster(
     import duckdb
 
     path = _validate_results_dir(results_dir)
-    glob_pattern = str(path / "*.parquet")
+    source = _parquet_source(path)
 
-    # Use setseed() for reproducibility when random_state is provided
-    if random_state is not None:
-        duckdb.execute(f"SELECT setseed({random_state / 2**31})")
+    # A seeded hash of each row gives the same order regardless of how DuckDB
+    # splits the scan across threads (setseed + RANDOM() does not)
+    if random_state is None:
+        order_by = "RANDOM()"
+    else:
+        order_by = f"hash(t, {int(random_state)})"
 
-    # Use ORDER BY RANDOM() for sampling, which is more portable
     query = f"""
         SELECT *
-        FROM '{glob_pattern}'
-        WHERE cluster_id = {cluster_id}
-        ORDER BY RANDOM()
+        FROM {source} AS t
+        WHERE {_quote_identifier(cluster_column)} = {cluster_id}
+        ORDER BY {order_by}
         LIMIT {n}
     """
 
