@@ -5,17 +5,27 @@ molecular datasets using Product Quantization and nested TMAPs.
 """
 
 from .streamer.data_streamer import DataStreamer
-from .encoder.encoder import PQEncoder
 from .utils.fingerprints import FingerprintCalculator
 from .utils.helper_functions import save_chunk, format_time
 
-# Optional imports - only available if dependencies are installed
-try:
-    from .clustering.PyQKmeans import PQKMeans
-except ImportError as e:
-    import warnings
-    warnings.warn(f"PQKMeans not available: {e}")
-    PQKMeans = None  # pqkmeans or numba not installed
+
+def __getattr__(name):
+    # PQEncoder and PQKMeans pull in torch, numba and pqkmeans, so they load on
+    # first use. This keeps `import chelombus` fast, which matters most for
+    # fingerprint worker processes on Windows and macOS (each re-imports it).
+    if name == "PQEncoder":
+        from .encoder.encoder import PQEncoder as value
+    elif name == "PQKMeans":
+        try:
+            from .clustering.PyQKmeans import PQKMeans as value
+        except ImportError as e:
+            import warnings
+            warnings.warn(f"PQKMeans not available: {e}")
+            value = None  # pqkmeans or numba not installed
+    else:
+        raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+    globals()[name] = value
+    return value
 
 # Cluster I/O utilities (require duckdb)
 try:
@@ -36,7 +46,7 @@ except ImportError:
     def _cluster_io_not_available(*args, **kwargs):
         raise ImportError(
             "Cluster I/O functions require duckdb. "
-            "Install with: pip install chelombus[io] or pip install duckdb"
+            "Install with: pip install duckdb"
         )
     query_cluster = _cluster_io_not_available
     export_cluster = _cluster_io_not_available

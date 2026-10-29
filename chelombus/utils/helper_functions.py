@@ -20,14 +20,15 @@ def _process_input(input_paths):
         # Single path (file or folder)
         input_paths = [input_paths]
     elif not isinstance(input_paths, (list, tuple)):
-        logging.error(f"Invalid input type: {type(input_paths)}. Provide a string, list, or tuple. Skipping")
+        raise TypeError(f"Invalid input type: {type(input_paths)}. Provide a string, list, or tuple.")
 
     for input_path in input_paths:
         if os.path.isdir(input_path):
-            # Process all files in the directory
-            for file in os.listdir(input_path):
+            # Process all files in the directory, in a stable order, skipping
+            # hidden files like .DS_Store
+            for file in sorted(os.listdir(input_path)):
                 file_path = os.path.join(input_path, file)
-                if os.path.isfile(file_path):  # Optional: filter by file extensions
+                if os.path.isfile(file_path) and not file.startswith("."):
                     yield file_path
         elif os.path.isfile(input_path):
             # Process a single file

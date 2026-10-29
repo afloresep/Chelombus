@@ -120,6 +120,9 @@ Result: `OUT/models/encoder.joblib` and `OUT/models/clusterer.joblib`.
 This is the one pass over **all** your molecules. It uses the GPU. It writes
 parquet files with three columns: `id`, `smiles`, `cluster_id`.
 
+If your file has no id column, leave out `--id-col 0` (molecules are then
+numbered 0, 1, 2, ...). `--resume` skips chunks already done if you restart.
+
 ```bash
 $PQ scripts/pipeline/02_assign_clusters.py \
     --input  all_molecules.smi \
@@ -127,9 +130,9 @@ $PQ scripts/pipeline/02_assign_clusters.py \
     --encoder   OUT/models/encoder.joblib \
     --clusterer OUT/models/clusterer.joblib \
     --smiles-col 0 \
-    --id-col 0 \            # DELETE this line if your file has no id column
+    --id-col 0 \
     --device gpu \
-    --resume                # skip chunks already done if you restart
+    --resume
 ```
 
 ### Step 3 — Group (put each cluster together)

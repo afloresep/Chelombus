@@ -1,5 +1,6 @@
 #This module provides functionality to compute molecular fingerprints from SMILES strings 
-from multiprocessing import Pool
+from concurrent.futures import ProcessPoolExecutor
+from concurrent.futures.process import BrokenProcessPool
 from functools import partial
 from rdkit import Chem, DataStructs
 import os 
@@ -88,14 +89,18 @@ class FingerprintCalculator:
             'mqn': _calculate_mqn_fp,
         }
 
-    def FingerprintFromSmiles(self, smiles:List | str, fp:str, nprocesses:int | None = os.cpu_count(),
+    def FingerprintFromSmiles(self, smiles:List | str, fp:str, nprocesses:int | None = None,
                               return_valid_idx: bool = False, **params):
         """
         Generate fingerprints for a list of SMILES strings in parallel.
 
         The method selects the appropriate fingerprint function based on the 'fp' parameter,
         binds additional keyword parameters using functools.partial, and then applies the function
-        across the SMILES list using multiprocessing.Pool.map.
+        across the SMILES list in a pool of worker processes.
+
+        On Windows and macOS, worker processes re-import the calling script, so
+        a script that calls this must do so under ``if __name__ == "__main__":``.
+        Notebooks are not affected.
 
         Some SMILES may fail to parse; those rows are dropped. By default you get
         back only the surviving fingerprints, and you cannot tell *which* inputs
@@ -111,7 +116,8 @@ class FingerprintCalculator:
         Args:
             smiles_list (list): A list of SMILES strings.
             fp (str): The fingerprint type to compute (e.g., 'morgan').
-            nprocesses (int): Number of processes for multithreaded fingerprint calculation.  Default to cpu cores
+            nprocesses (int): Number of worker processes. Defaults to all CPU cores
+                (at most 61 on Windows). Use 1 to compute in the current process.
             return_valid_idx (bool): If True, return ``(valid_idx, fingerprints)``
                 where ``valid_idx`` is an int64 array of the input positions that
                 parsed OK. If False (default), return only the fingerprints.
@@ -126,6 +132,8 @@ class FingerprintCalculator:
 
         Raises:
             ValueError: If an unsupported fingerprint type is requested.
+            RuntimeError: If a worker process dies, e.g. a script on Windows or
+                macOS that is missing the ``__main__`` guard.
         """
         func = self.fingerprint_function_map.get(fp)
         if func is None:
@@ -136,12 +144,33 @@ class FingerprintCalculator:
 
         if isinstance(smiles, str):
             smiles = [smiles]
-        try:
-            with Pool(processes=nprocesses) as pool:
-                fingerprints = pool.map(part_func, smiles)
-        finally:
-            pool.close()
-            pool.join()
+        if nprocesses == 1:
+            # No worker processes: avoids pool startup cost and spawn issues
+            fingerprints = [part_func(s) for s in smiles]
+        else:
+            # A few chunks per worker keeps them busy without per-item overhead
+            n_workers = nprocesses or os.cpu_count() or 1
+            chunksize = max(1, len(smiles) // (n_workers * 4))
+            executor = ProcessPoolExecutor(max_workers=nprocesses)
+            try:
+                fingerprints = list(executor.map(part_func, smiles, chunksize=chunksize))
+            except BrokenProcessPool as e:
+                # multiprocessing.Pool would respawn crashed workers forever here
+                raise RuntimeError(
+                    "A fingerprint worker process crashed. On Windows and macOS this "
+                    "usually means the script calling FingerprintFromSmiles is missing "
+                    "an `if __name__ == \"__main__\":` guard around its code."
+                ) from e
+            finally:
+                # Results are collected; don't block while idle workers exit
+                executor.shutdown(wait=False, cancel_futures=True)
+
+        if len(smiles) > 0 and all(fp_ is None for fp_ in fingerprints):
+            # Usually a reading problem (wrong column or separator), not bad molecules
+            logger.warning(
+                "None of the %d SMILES could be parsed (first: %r). If reading with "
+                "DataStreamer, check smiles_col and sep.", len(smiles), next(iter(smiles))
+            )
 
         if return_valid_idx:
             # Keep the input positions that produced a fingerprint, so the

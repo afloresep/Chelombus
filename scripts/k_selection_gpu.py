@@ -125,7 +125,7 @@ def main():
             continue
 
         # Fit on GPU
-        clusterer = PQKMeans(encoder, k=k, iteration=args.iterations, verbose=False)
+        clusterer = PQKMeans(encoder, k=k, iterations=args.iterations, verbose=False)
         t0 = time.perf_counter()
         clusterer.fit(pq_codes, device='gpu')
         t_fit = time.perf_counter() - t0

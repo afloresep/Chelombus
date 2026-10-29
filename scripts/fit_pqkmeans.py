@@ -225,7 +225,7 @@ def main():
     pq_encoder = joblib.load(args.encoder)
     kmeans = PQKMeans(encoder=pq_encoder,
                       k=args.k,
-                      iteration=args.iterations,
+                      iterations=args.iterations,
                       verbose=args.kmeans_verbose)
 
     train_start = time.time()

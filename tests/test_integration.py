@@ -172,7 +172,7 @@ class TestFullPipelineIntegration:
 
         # Step 4: Train and apply clustering
         n_clusters = 5
-        clusterer = PQKMeans(encoder, k=n_clusters, iteration=5, verbose=False)
+        clusterer = PQKMeans(encoder, k=n_clusters, iterations=5, verbose=False)
         labels = clusterer.fit_predict(pq_codes)
 
         assert labels.shape == (n_valid,)
@@ -214,7 +214,7 @@ class TestFullPipelineIntegration:
         # Step 2: Train clusterer on PQ codes
         training_pq_codes = encoder.transform(training_fps.astype(np.float32), verbose=0)
         n_clusters = 3
-        clusterer = PQKMeans(encoder, k=n_clusters, iteration=5, verbose=False)
+        clusterer = PQKMeans(encoder, k=n_clusters, iterations=5, verbose=False)
         clusterer.fit(training_pq_codes)
 
         # Step 3: Process in chunks
@@ -266,7 +266,7 @@ class TestFullPipelineIntegration:
 
         # Train clusterer
         pq_codes = encoder.transform(fps.astype(np.float32), verbose=0)
-        clusterer = PQKMeans(encoder, k=3, iteration=5, verbose=False)
+        clusterer = PQKMeans(encoder, k=3, iterations=5, verbose=False)
         clusterer.fit(pq_codes)
 
         # Save clusterer

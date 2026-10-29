@@ -415,9 +415,22 @@ class TestSampleFromCluster:
         df1 = sample_from_cluster(large_results_dir, cluster_id=0, n=5, random_state=42)
         df2 = sample_from_cluster(large_results_dir, cluster_id=0, n=5, random_state=42)
 
-        # Note: DuckDB's SAMPLE REPEATABLE should give same results
-        # but may not be exactly identical in all versions
-        assert len(df1) == len(df2)
+        df3 = sample_from_cluster(large_results_dir, cluster_id=0, n=5, random_state=7)
+
+        assert df1["smiles"].tolist() == df2["smiles"].tolist()
+        assert df1["smiles"].tolist() != df3["smiles"].tolist()
+
+    def test_sample_with_random_state_duplicate_rows(self, tmp_path):
+        """Duplicate rows are sampled independently, not grouped together."""
+        results_dir = tmp_path / "dup"
+        results_dir.mkdir()
+        pd.DataFrame({"smiles": ["A"] * 100 + ["B"] * 100, "cluster_id": 0}).to_parquet(
+            results_dir / "chunk_00000.parquet", index=False)
+
+        for seed in range(5):
+            df = sample_from_cluster(results_dir, cluster_id=0, n=20, random_state=seed)
+            assert list(df.columns) == ["smiles", "cluster_id"]
+            assert set(df["smiles"]) == {"A", "B"}
 
     def test_sample_empty_cluster(self, sample_results_dir):
         """Test sampling from non-existent cluster."""
@@ -453,9 +466,43 @@ class TestIntegration:
         stats = export_all_clusters(sample_results_dir, output_dir)
 
         # Query from partitioned output using DuckDB directly
-        df = duckdb.query(f"""
+        df = duckdb.execute(f"""
             SELECT * FROM '{output_dir}/*/*.parquet'
             WHERE cluster_id = 0
         """).df()
 
         assert len(df) == stats[0]
+
+
+class TestPathsAndColumnNames:
+    """Paths with quotes and non-default column names."""
+
+    @pytest.fixture
+    def custom_dir(self, tmp_path):
+        results_dir = tmp_path / "O'Brien results"
+        results_dir.mkdir()
+        pd.DataFrame({
+            "SMILES": ["CCO", "CC", "CCC", "CCCC"],
+            "label": [0, 1, 0, 1],
+        }).to_parquet(results_dir / "part.parquet", index=False)
+        return results_dir
+
+    def test_query_path_with_quote(self, custom_dir):
+        df = query_cluster(custom_dir, cluster_id=0, cluster_column="label")
+        assert sorted(df["SMILES"]) == ["CCC", "CCO"]
+
+    def test_sample_custom_cluster_column(self, custom_dir):
+        df = sample_from_cluster(custom_dir, cluster_id=1, n=5, cluster_column="label")
+        assert sorted(df["SMILES"]) == ["CC", "CCCC"]
+
+    def test_export_smi_custom_smiles_column(self, custom_dir, tmp_path):
+        out = tmp_path / "it's.smi"
+        count = export_cluster(custom_dir, 0, out, cluster_column="label", smiles_column="SMILES")
+        assert count == 2
+        assert sorted(out.read_text().split()) == ["CCC", "CCO"]
+
+    def test_export_all_custom_columns(self, custom_dir, tmp_path):
+        stats = export_all_clusters(custom_dir, tmp_path / "out", cluster_column="label",
+                                    smiles_column="SMILES")
+        assert stats == {0: 2, 1: 2}
+        assert (tmp_path / "out" / "label=0").is_dir()

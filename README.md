@@ -45,11 +45,15 @@ pip install -e .
 
 **Apple Silicon (M1/M2/M3)**: The `pqkmeans` library is not currently supported on Apple Silicon Macs. My plan is to rewrite pqkmeans with Silicon and GPU support but that's for a future release... For now, clustering functionality requires an x86_64 system.
 
+**Windows**: Not supported natively. `pqkmeans` has no Windows wheels (building it needs MSVC and CMake), and the GPU kernels need Triton, which is Linux only. Use [WSL2](https://learn.microsoft.com/windows/wsl/install) instead.
+
+**Scripts on macOS (and Windows)**: `FingerprintFromSmiles` runs in parallel worker processes, which re-import the calling script on these systems. Put a script's code under `if __name__ == "__main__":`. Notebooks are not affected.
+
 ## GPU Acceleration
 
 Every step in the pipeline supports optional GPU acceleration via the `device` parameter: encoder training, PQ encoding, cluster training, and label assignment. When a CUDA GPU is available, `device='auto'` (the default) uses the GPU transparently; otherwise it falls back to CPU.
 
-**Requirements**: `torch` and `triton` (both installed with `pip install torch`).
+**Requirements**: `torch` and `triton` (on Linux, `pip install torch` installs both).
 
 ```python
 encoder = PQEncoder(k=256, m=6, iterations=20)
@@ -90,11 +94,12 @@ The GPU implementation uses a custom Triton kernel for cluster assignment that t
 from chelombus import DataStreamer, FingerprintCalculator, PQEncoder, PQKMeans
 
 # 1. Stream SMILES in chunks
-streamer = DataStreamer(path='molecules.smi', chunksize=100000)
+streamer = DataStreamer()
+smiles_gen = streamer.parse_input('molecules.smi', chunksize=100000)
 
 # 2. Calculate MQN fingerprints
 fp_calc = FingerprintCalculator()
-for smiles_chunk in streamer.parse_input():
+for smiles_chunk in smiles_gen:
     fingerprints = fp_calc.FingerprintFromSmiles(smiles_chunk, fp='mqn')
     # Save fingerprints...
 

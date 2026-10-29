@@ -10,6 +10,7 @@ Reference:
 """
 from typing import Literal, overload
 
+import warnings
 import joblib
 from pathlib import Path
 import numpy as np
@@ -23,7 +24,7 @@ try:
     if torch.cuda.is_available():
         from chelombus.clustering._gpu_predict import predict_gpu
         _GPU_AVAILABLE = True
-except ImportError:
+except Exception:  # not installed, or a broken install (e.g. missing DLL)
     pass
 
 
@@ -126,11 +127,12 @@ class PQKMeans:
     Args:
         encoder: A trained PQEncoder instance
         k: Number of clusters
-        iteration: Maximum number of k-means iterations (default: 20)
+        iterations: Maximum number of k-means iterations (default: 20)
         tol: Early-stopping tolerance for the GPU path. Training stops when
              the fraction of changed center coordinates drops below *tol*.
              0 means stop only on exact convergence. (default: 1e-3)
         verbose: Whether to print progress information (default: False)
+        iteration: Deprecated alias for ``iterations``.
 
     Example:
         >>> encoder = PQEncoder(k=256, m=6)
@@ -144,16 +146,24 @@ class PQKMeans:
         self,
         encoder: PQEncoder,
         k: int,
-        iteration: int = 20,
+        iterations: int = 20,
         tol: float = 1e-3,
-        verbose: bool = False
+        verbose: bool = False,
+        iteration: int | None = None,
     ):
+        if iteration is not None:
+            warnings.warn(
+                "'iteration' is deprecated, use 'iterations' instead",
+                DeprecationWarning,
+                stacklevel=2,
+            )
+            iterations = iteration
         if not encoder.encoder_is_trained: # type: ignore
             raise ValueError("Encoder must be trained before clustering")
 
         self.encoder = encoder
         self.k = k
-        self.iteration = iteration
+        self.iterations = iterations
         self.tol = tol
         self.verbose = verbose
         self.trained = False
@@ -163,7 +173,7 @@ class PQKMeans:
         self._cluster = pqkmeans.clustering.PQKMeans(
             encoder=encoder,
             k=k,
-            iteration=iteration,
+            iteration=iterations,
             verbose=verbose,
         )
 
@@ -249,7 +259,7 @@ class PQKMeans:
         labels = None
         prev_centers = None
         final_labels_match_centers = False
-        for it in range(self.iteration):
+        for it in range(self.iterations):
             t0 = time.time()
 
             # assignment (GPU)
@@ -274,7 +284,7 @@ class PQKMeans:
 
             if self.verbose:
                 print(
-                    f"  iter {it + 1}/{self.iteration}  "
+                    f"  iter {it + 1}/{self.iterations}  "
                     f"assign={t1 - t0:.1f}s  update={t2 - t1:.1f}s  "
                     f"changed={changed}/{total_coords} ({frac:.4%})"
                 )
@@ -392,6 +402,9 @@ class PQKMeans:
         obj = joblib.load(path)
         if not isinstance(obj, cls):
             raise TypeError(f"Expected {cls.__name__}, got {type(obj).__name__}")
+        if not hasattr(obj, 'iterations'):
+            # Models saved before the 'iteration' -> 'iterations' rename
+            obj.iterations = obj.__dict__.pop('iteration')
         if not hasattr(obj, '_dtables'):
             obj._dtables = None
         if not hasattr(obj, '_centers_u8'):

@@ -66,3 +66,70 @@ def test_parse_input_omits_invalid_line_without_chunksize(tmp_path, monkeypatch)
     
     # Expected: one chunk containing only the valid lines.
     assert result == [["valid_line1", "valid_line2"]]
+
+
+def test_parse_input_gzip(tmp_path: Path):
+    import gzip
+    with gzip.open(tmp_path / "mols.smi.gz", "wt") as f:
+        f.write("CCO\nc1ccccc1\n")
+
+    result = list(DataStreamer().parse_input(str(tmp_path / "mols.smi.gz")))
+    assert result == [["CCO", "c1ccccc1"]]
+
+
+def test_parse_input_gzip_sdf(tmp_path: Path):
+    import gzip
+    from rdkit import Chem
+    with gzip.open(tmp_path / "mols.sdf.gz", "wt") as f:
+        for smi in ("CCO", "CCN"):
+            f.write(Chem.MolToMolBlock(Chem.MolFromSmiles(smi)) + "$$$$\n")
+
+    result = list(DataStreamer().parse_input(str(tmp_path / "mols.sdf.gz")))
+    assert result == [["CCO", "CCN"]]
+
+
+def test_parse_input_glob_sorted(tmp_path: Path):
+    (tmp_path / "b.smi").write_text("CCN\n")
+    (tmp_path / "a.smi").write_text("CCO\n")
+    (tmp_path / "notes.md").write_text("not smiles\n")
+
+    result = list(DataStreamer().parse_input(str(tmp_path / "*.smi")))
+    assert result == [["CCO"], ["CCN"]]
+
+
+def test_parse_input_glob_no_match(tmp_path: Path):
+    with pytest.raises(FileNotFoundError):
+        list(DataStreamer().parse_input(str(tmp_path / "*.smi")))
+
+
+def test_parse_input_directory_sorted_skips_hidden(tmp_path: Path):
+    (tmp_path / "b.smi").write_text("CCN\n")
+    (tmp_path / "a.smi").write_text("CCO\n")
+    (tmp_path / ".DS_Store").write_bytes(b"\x00\x01")
+
+    result = list(DataStreamer().parse_input(str(tmp_path)))
+    assert result == [["CCO"], ["CCN"]]
+
+
+def test_parse_input_csv_sep(tmp_path: Path):
+    (tmp_path / "mols.csv").write_text("id1, CCO\nid2,CCN\n\n")
+
+    result = list(DataStreamer().parse_input(str(tmp_path / "mols.csv"), smiles_col=1,
+                                             id_col=0, sep=","))
+    assert result == [[("id1", "CCO"), ("id2", "CCN")]]
+
+
+def test_parse_input_csv_quoted_fields(tmp_path: Path):
+    (tmp_path / "mols.csv").write_text('"CCO",id1\n"C(C)O","a,b"\n')
+
+    result = list(DataStreamer().parse_input(str(tmp_path / "mols.csv"), id_col=1, sep=","))
+    assert result == [[("id1", "CCO"), ("a,b", "C(C)O")]]
+
+
+def test_parse_input_existing_path_with_glob_characters(tmp_path: Path):
+    folder = tmp_path / "batch[1]"
+    folder.mkdir()
+    (folder / "a.smi").write_text("CCO\n")
+
+    result = list(DataStreamer().parse_input(str(folder)))
+    assert result == [["CCO"]]

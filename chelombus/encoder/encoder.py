@@ -11,7 +11,7 @@ try:
     import torch
     if torch.cuda.is_available():
         _GPU_AVAILABLE = True
-except ImportError:
+except Exception:  # not installed, or a broken install (e.g. missing DLL)
     pass
 
 

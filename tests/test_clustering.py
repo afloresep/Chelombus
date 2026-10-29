@@ -60,11 +60,11 @@ class TestPQKMeansInit:
 
     def test_init_with_trained_encoder(self, trained_encoder):
         """Test that PQKMeans can be initialized with a trained encoder."""
-        clusterer = PQKMeans(trained_encoder, k=10, iteration=5, verbose=False)
+        clusterer = PQKMeans(trained_encoder, k=10, iterations=5, verbose=False)
 
         assert clusterer.encoder == trained_encoder
         assert clusterer.k == 10
-        assert clusterer.iteration == 5
+        assert clusterer.iterations == 5
         assert clusterer.verbose is False
         assert clusterer.encoder.is_trained is True  # Encoder is trained
 
@@ -78,8 +78,15 @@ class TestPQKMeansInit:
         clusterer = PQKMeans(trained_encoder, k=100)
 
         assert clusterer.k == 100
-        assert clusterer.iteration == 20  # default
+        assert clusterer.iterations == 20  # default
         assert clusterer.verbose is False  # default
+
+    def test_init_deprecated_iteration_alias(self, trained_encoder):
+        """The old 'iteration' keyword still works but warns."""
+        with pytest.warns(DeprecationWarning, match="iterations"):
+            clusterer = PQKMeans(trained_encoder, k=10, iteration=7)
+
+        assert clusterer.iterations == 7
 
 
 class TestPQKMeansFit:
@@ -87,14 +94,14 @@ class TestPQKMeansFit:
 
     def test_fit_returns_self(self, trained_encoder, sample_pq_codes):
         """Test that fit() returns self for method chaining."""
-        clusterer = PQKMeans(trained_encoder, k=5, iteration=3, verbose=False)
+        clusterer = PQKMeans(trained_encoder, k=5, iterations=3, verbose=False)
         result = clusterer.fit(sample_pq_codes)
 
         assert result is clusterer
 
     def test_fit_with_valid_pq_codes(self, trained_encoder, sample_pq_codes):
         """Test fitting with valid PQ codes."""
-        clusterer = PQKMeans(trained_encoder, k=5, iteration=3, verbose=False)
+        clusterer = PQKMeans(trained_encoder, k=5, iterations=3, verbose=False)
         clusterer.fit(sample_pq_codes)
 
         # Should complete without error
@@ -102,7 +109,7 @@ class TestPQKMeansFit:
 
     def test_fit_with_small_k(self, trained_encoder, sample_pq_codes):
         """Test fitting with small number of clusters."""
-        clusterer = PQKMeans(trained_encoder, k=3, iteration=3, verbose=False)
+        clusterer = PQKMeans(trained_encoder, k=3, iterations=3, verbose=False)
         clusterer.fit(sample_pq_codes)
 
         # Predict should return labels in range [0, k)
@@ -116,7 +123,7 @@ class TestPQKMeansPredict:
 
     def test_predict_shape(self, trained_encoder, sample_pq_codes):
         """Test that predict returns correct shape."""
-        clusterer = PQKMeans(trained_encoder, k=5, iteration=3, verbose=False)
+        clusterer = PQKMeans(trained_encoder, k=5, iterations=3, verbose=False)
         clusterer.fit(sample_pq_codes)
 
         labels = clusterer.predict(sample_pq_codes)
@@ -126,7 +133,7 @@ class TestPQKMeansPredict:
     def test_predict_label_range(self, trained_encoder, sample_pq_codes):
         """Test that predicted labels are in valid range."""
         k = 5
-        clusterer = PQKMeans(trained_encoder, k=k, iteration=3, verbose=False)
+        clusterer = PQKMeans(trained_encoder, k=k, iterations=3, verbose=False)
         clusterer.fit(sample_pq_codes)
 
         labels = clusterer.predict(sample_pq_codes)
@@ -136,7 +143,7 @@ class TestPQKMeansPredict:
 
     def test_predict_dtype(self, trained_encoder, sample_pq_codes):
         """Test that predicted labels are integers."""
-        clusterer = PQKMeans(trained_encoder, k=5, iteration=3, verbose=False)
+        clusterer = PQKMeans(trained_encoder, k=5, iterations=3, verbose=False)
         clusterer.fit(sample_pq_codes)
 
         labels = clusterer.predict(sample_pq_codes)
@@ -149,7 +156,7 @@ class TestPQKMeansFitPredict:
 
     def test_fit_predict_shape(self, trained_encoder, sample_pq_codes):
         """Test that fit_predict returns correct shape."""
-        clusterer = PQKMeans(trained_encoder, k=5, iteration=3, verbose=False)
+        clusterer = PQKMeans(trained_encoder, k=5, iterations=3, verbose=False)
 
         labels = clusterer.fit_predict(sample_pq_codes)
 
@@ -159,7 +166,7 @@ class TestPQKMeansFitPredict:
         """Test that fit_predict gives same result as fit then predict."""
         np.random.seed(42)
 
-        clusterer1 = PQKMeans(trained_encoder, k=5, iteration=3, verbose=False)
+        clusterer1 = PQKMeans(trained_encoder, k=5, iterations=3, verbose=False)
         labels1 = clusterer1.fit_predict(sample_pq_codes)
 
         # Note: Due to randomness in k-means, we can't guarantee exact equality
@@ -173,7 +180,7 @@ class TestPQKMeansSaveLoad:
 
     def test_save_creates_file(self, trained_encoder, sample_pq_codes, tmp_path):
         """Test that save creates a file."""
-        clusterer = PQKMeans(trained_encoder, k=5, iteration=3, verbose=False)
+        clusterer = PQKMeans(trained_encoder, k=5, iterations=3, verbose=False)
         clusterer.fit(sample_pq_codes)
 
         save_path = tmp_path / "clusterer.pkl"
@@ -183,7 +190,7 @@ class TestPQKMeansSaveLoad:
 
     def test_load_restores_clusterer(self, trained_encoder, sample_pq_codes, tmp_path):
         """Test that load restores a clusterer correctly."""
-        clusterer = PQKMeans(trained_encoder, k=5, iteration=3, verbose=False)
+        clusterer = PQKMeans(trained_encoder, k=5, iterations=3, verbose=False)
         clusterer.fit(sample_pq_codes)
         labels_before = clusterer.predict(sample_pq_codes)
 
@@ -208,7 +215,7 @@ class TestPQKMeansSaveLoad:
 
     def test_load_with_string_path(self, trained_encoder, sample_pq_codes, tmp_path):
         """Test that load works with string path."""
-        clusterer = PQKMeans(trained_encoder, k=5, iteration=3, verbose=False)
+        clusterer = PQKMeans(trained_encoder, k=5, iterations=3, verbose=False)
         clusterer.fit(sample_pq_codes)
 
         save_path = str(tmp_path / "clusterer.pkl")
@@ -253,7 +260,7 @@ class TestPQKMeansIntegration:
         # Encode and cluster
         pq_codes = trained_encoder.transform(X, verbose=0)
 
-        clusterer = PQKMeans(trained_encoder, k=n_true_clusters, iteration=10, verbose=False)
+        clusterer = PQKMeans(trained_encoder, k=n_true_clusters, iterations=10, verbose=False)
         labels = clusterer.fit_predict(pq_codes)
 
         # Check basic properties
@@ -269,7 +276,7 @@ class TestPQKMeansIntegration:
         pq_codes = trained_encoder.transform(X, verbose=0)
 
         k = 50
-        clusterer = PQKMeans(trained_encoder, k=k, iteration=5, verbose=False)
+        clusterer = PQKMeans(trained_encoder, k=k, iterations=5, verbose=False)
         labels = clusterer.fit_predict(pq_codes)
 
         # Should have multiple clusters represented
@@ -319,7 +326,7 @@ class TestPQKMeansRegressions:
             lambda *args, **kwargs: np.random.Generator(np.random.PCG64(0)),
         )
 
-        clusterer = PQKMeans(trained_encoder, k=10, iteration=20, tol=1e-3, verbose=False)
+        clusterer = PQKMeans(trained_encoder, k=10, iterations=20, tol=1e-3, verbose=False)
         labels = clusterer.fit_predict(sample_pq_codes, device='gpu')
         final_labels = clusterer.predict(sample_pq_codes, device='cpu')
 
@@ -341,7 +348,7 @@ class TestPQKMeansRegressions:
             lambda *args, **kwargs: np.random.Generator(np.random.PCG64(1)),
         )
 
-        clusterer = PQKMeans(trained_encoder, k=5, iteration=5, verbose=False)
+        clusterer = PQKMeans(trained_encoder, k=5, iterations=5, verbose=False)
         clusterer.fit(sample_pq_codes, device='gpu')
 
         assert clusterer._fit_labels is None
@@ -356,7 +363,7 @@ class TestPQKMeansRegressions:
 
         monkeypatch.setattr(pyqkmeans_module, "predict_gpu", fail_predict_gpu, raising=False)
 
-        clusterer = PQKMeans(trained_encoder, k=5, iteration=3, verbose=False)
+        clusterer = PQKMeans(trained_encoder, k=5, iterations=3, verbose=False)
         # Pretend the encoder has k > 256 to trigger the guard
         monkeypatch.setattr(trained_encoder, "k", 512)
 
@@ -412,7 +419,7 @@ class TestGPUPredict:
     @gpu
     def test_gpu_predict_matches_cpu(self, trained_encoder, sample_pq_codes):
         """GPU and CPU predict must return identical labels."""
-        clusterer = PQKMeans(trained_encoder, k=5, iteration=3, verbose=False)
+        clusterer = PQKMeans(trained_encoder, k=5, iterations=3, verbose=False)
         clusterer.fit(sample_pq_codes, device='cpu')
 
         labels_cpu = clusterer.predict(sample_pq_codes, device='cpu')
@@ -424,7 +431,7 @@ class TestGPUPredict:
     def test_gpu_predict_shape_and_range(self, trained_encoder, sample_pq_codes):
         """GPU predict returns correct shape and valid label range."""
         k = 5
-        clusterer = PQKMeans(trained_encoder, k=k, iteration=3, verbose=False)
+        clusterer = PQKMeans(trained_encoder, k=k, iterations=3, verbose=False)
         clusterer.fit(sample_pq_codes, device='cpu')
 
         labels = clusterer.predict(sample_pq_codes, device='gpu')
@@ -437,7 +444,7 @@ class TestGPUPredict:
     @gpu
     def test_gpu_predict_deterministic(self, trained_encoder, sample_pq_codes):
         """Repeated GPU predict calls return the same labels."""
-        clusterer = PQKMeans(trained_encoder, k=5, iteration=3, verbose=False)
+        clusterer = PQKMeans(trained_encoder, k=5, iterations=3, verbose=False)
         clusterer.fit(sample_pq_codes, device='cpu')
 
         labels1 = clusterer.predict(sample_pq_codes, device='gpu')
@@ -453,7 +460,7 @@ class TestGPUFit:
     def test_gpu_fit_produces_valid_clusters(self, trained_encoder, sample_pq_codes):
         """GPU fit must produce a trained model with valid labels."""
         k = 5
-        clusterer = PQKMeans(trained_encoder, k=k, iteration=3, verbose=False)
+        clusterer = PQKMeans(trained_encoder, k=k, iterations=3, verbose=False)
         clusterer.fit(sample_pq_codes, device='gpu')
 
         assert clusterer.is_trained
@@ -465,7 +472,7 @@ class TestGPUFit:
     @gpu
     def test_gpu_fit_returns_self(self, trained_encoder, sample_pq_codes):
         """GPU fit returns self for method chaining."""
-        clusterer = PQKMeans(trained_encoder, k=5, iteration=3, verbose=False)
+        clusterer = PQKMeans(trained_encoder, k=5, iterations=3, verbose=False)
         result = clusterer.fit(sample_pq_codes, device='gpu')
 
         assert result is clusterer
@@ -473,7 +480,7 @@ class TestGPUFit:
     @gpu
     def test_gpu_fit_centers_are_valid_codes(self, trained_encoder, sample_pq_codes):
         """Cluster centers after GPU fit must be valid codebook indices."""
-        clusterer = PQKMeans(trained_encoder, k=5, iteration=3, verbose=False)
+        clusterer = PQKMeans(trained_encoder, k=5, iterations=3, verbose=False)
         clusterer.fit(sample_pq_codes, device='gpu')
 
         centers = clusterer.cluster_centers_
@@ -485,7 +492,7 @@ class TestGPUFit:
     def test_gpu_fit_predict(self, trained_encoder, sample_pq_codes):
         """GPU fit_predict returns labels of correct shape and range."""
         k = 5
-        clusterer = PQKMeans(trained_encoder, k=k, iteration=3, verbose=False)
+        clusterer = PQKMeans(trained_encoder, k=k, iterations=3, verbose=False)
         labels = clusterer.fit_predict(sample_pq_codes, device='gpu')
 
         assert labels.shape == (len(sample_pq_codes),)
@@ -499,7 +506,7 @@ class TestGPUSaveLoad:
     @gpu
     def test_gpu_save_load_labels_match(self, trained_encoder, sample_pq_codes, tmp_path):
         """Labels must match after save/load of a GPU-trained model."""
-        clusterer = PQKMeans(trained_encoder, k=5, iteration=3, tol=0, verbose=False)
+        clusterer = PQKMeans(trained_encoder, k=5, iterations=3, tol=0, verbose=False)
         clusterer.fit(sample_pq_codes, device='gpu')
         labels_before = clusterer.predict(sample_pq_codes)
 
@@ -513,7 +520,7 @@ class TestGPUSaveLoad:
     @gpu
     def test_gpu_save_load_gpu_predict(self, trained_encoder, sample_pq_codes, tmp_path):
         """GPU predict works correctly on a loaded model."""
-        clusterer = PQKMeans(trained_encoder, k=5, iteration=3, tol=0, verbose=False)
+        clusterer = PQKMeans(trained_encoder, k=5, iterations=3, tol=0, verbose=False)
         clusterer.fit(sample_pq_codes, device='gpu')
         labels_before = clusterer.predict(sample_pq_codes, device='gpu')
 
@@ -531,7 +538,7 @@ class TestEarlyStopping:
     @gpu
     def test_tol_stops_before_max_iterations(self, trained_encoder, sample_pq_codes):
         """With default tol, training should stop before iteration limit."""
-        clusterer = PQKMeans(trained_encoder, k=5, iteration=50, tol=1e-3, verbose=False)
+        clusterer = PQKMeans(trained_encoder, k=5, iterations=50, tol=1e-3, verbose=False)
         clusterer.fit(sample_pq_codes, device='gpu')
 
         # If early stopping works, it should finish quickly (not run 50 iters).
@@ -544,7 +551,7 @@ class TestEarlyStopping:
     @gpu
     def test_tol_zero_only_stops_on_exact_convergence(self, trained_encoder, sample_pq_codes):
         """tol=0 should only stop when no centers change at all."""
-        clusterer = PQKMeans(trained_encoder, k=5, iteration=3, tol=0, verbose=False)
+        clusterer = PQKMeans(trained_encoder, k=5, iterations=3, tol=0, verbose=False)
         clusterer.fit(sample_pq_codes, device='gpu')
 
         assert clusterer.is_trained

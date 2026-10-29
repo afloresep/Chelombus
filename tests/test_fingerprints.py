@@ -113,3 +113,63 @@ def test_fingerprint_with_data_parser(tmp_path):
     assert len(result) == 4 
     assert result[0].shape == (2, 1024)
     assert result[3].shape == (1, 1024)
+
+def test_fingerprint_calculator_serial_matches_pool():
+    """nprocesses=1 runs in-process and gives the same result as the pool."""
+    smiles = ['CCO', 'c1ccccc1O', 'not_a_smiles', 'CC(=O)Nc1ccc(O)cc1']
+    calculator = FingerprintCalculator()
+
+    idx_serial, fps_serial = calculator.FingerprintFromSmiles(
+        smiles, 'mqn', nprocesses=1, return_valid_idx=True)
+    idx_pool, fps_pool = calculator.FingerprintFromSmiles(
+        smiles, 'mqn', nprocesses=2, return_valid_idx=True)
+
+    np.testing.assert_array_equal(idx_serial, [0, 1, 3])
+    np.testing.assert_array_equal(idx_serial, idx_pool)
+    np.testing.assert_array_equal(fps_serial, fps_pool)
+    assert fps_serial.shape == (3, 42)
+
+
+def test_fingerprint_calculator_unguarded_script_errors_instead_of_hanging(tmp_path):
+    """A script without a __main__ guard under spawn (Windows default) must
+    fail fast with a helpful error, not respawn workers forever."""
+    import os
+    import subprocess
+    import sys
+    from pathlib import Path
+
+    script = tmp_path / "unguarded.py"
+    script.write_text(
+        "import multiprocessing as mp\n"
+        "mp.set_start_method('spawn', force=True)\n"
+        "from chelombus.utils.fingerprints import FingerprintCalculator\n"
+        "FingerprintCalculator().FingerprintFromSmiles(['CCO'] * 20, 'mqn', nprocesses=2)\n"
+    )
+    repo_root = str(Path(__file__).resolve().parents[1])
+    env = {**os.environ, "PYTHONPATH": repo_root + os.pathsep + os.environ.get("PYTHONPATH", "")}
+
+    result = subprocess.run([sys.executable, str(script)], cwd=tmp_path, env=env,
+                            capture_output=True, text=True, timeout=120)
+
+    assert result.returncode != 0
+    assert "__main__" in result.stderr and "guard" in result.stderr
+
+
+def test_fingerprint_calculator_warns_when_nothing_parses(caplog):
+    with caplog.at_level(logging.WARNING):
+        fps = FingerprintCalculator().FingerprintFromSmiles(["CCO,1", "CCN,2"], 'mqn', nprocesses=1)
+
+    assert len(fps) == 0
+    assert "None of the 2 SMILES could be parsed" in caplog.text
+
+
+@pytest.mark.parametrize("container", [np.array, list, tuple])
+def test_fingerprint_calculator_accepts_array_like(container):
+    fps = FingerprintCalculator().FingerprintFromSmiles(container(["CCO", "CCN"]), 'mqn', nprocesses=1)
+    assert fps.shape == (2, 42)
+
+
+def test_fingerprint_calculator_accepts_pandas_series():
+    pd = pytest.importorskip("pandas")
+    fps = FingerprintCalculator().FingerprintFromSmiles(pd.Series(["CCO", "CCN"]), 'mqn', nprocesses=1)
+    assert fps.shape == (2, 42)
