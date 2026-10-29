@@ -153,3 +153,11 @@ def test_fingerprint_calculator_unguarded_script_errors_instead_of_hanging(tmp_p
 
     assert result.returncode != 0
     assert "__main__" in result.stderr and "guard" in result.stderr
+
+
+def test_fingerprint_calculator_warns_when_nothing_parses(caplog):
+    with caplog.at_level(logging.WARNING):
+        fps = FingerprintCalculator().FingerprintFromSmiles(["CCO,1", "CCN,2"], 'mqn', nprocesses=1)
+
+    assert len(fps) == 0
+    assert "None of the 2 SMILES could be parsed" in caplog.text

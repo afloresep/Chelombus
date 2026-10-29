@@ -24,7 +24,7 @@ try:
     if torch.cuda.is_available():
         from chelombus.clustering._gpu_predict import predict_gpu
         _GPU_AVAILABLE = True
-except ImportError:
+except Exception:  # not installed, or a broken install (e.g. missing DLL)
     pass
 
 
