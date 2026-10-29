@@ -10,10 +10,10 @@ pip install chelombus
 
 ### GPU Support (optional)
 
-GPU acceleration requires PyTorch and Triton. Install them separately for your CUDA version:
+GPU acceleration requires PyTorch and Triton (Linux only). Install PyTorch for your CUDA version; on Linux it includes Triton:
 
 ```bash
-pip install torch triton
+pip install torch
 ```
 
 When CUDA is available, `PQEncoder.fit()`, `.transform()`, `PQKMeans.fit()`, and `.predict()` automatically use the GPU. No code changes needed — the library falls back to CPU transparently if CUDA is not detected.
@@ -28,6 +28,12 @@ pip install -e .
 
 !!! warning "Apple Silicon (M1/M2/M3)"
     The `pqkmeans` library is not currently supported on Apple Silicon Macs. Clustering functionality requires an x86_64 system.
+
+!!! warning "Windows"
+    Not supported natively. `pqkmeans` has no Windows wheels (building it needs MSVC and CMake), and the GPU kernels need Triton, which is Linux only. Use [WSL2](https://learn.microsoft.com/windows/wsl/install) instead.
+
+!!! note "Scripts on macOS (and Windows)"
+    `FingerprintFromSmiles` runs in parallel worker processes, which re-import the calling script on these systems. Put a script's code under `if __name__ == "__main__":`. Notebooks are not affected.
 
 ## Quick Start
 
