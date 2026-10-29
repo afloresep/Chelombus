@@ -129,7 +129,7 @@ def query_cluster(
         WHERE {quoted_cluster_column} = {cluster_id}
     """
 
-    result = duckdb.query(query).df()
+    result = duckdb.execute(query).df()
 
     if result.empty:
         logger.warning(f"No molecules found for cluster_id={cluster_id}")
@@ -184,7 +184,7 @@ def export_cluster(
         FROM '{glob_pattern}'
         WHERE {quoted_cluster_column} = {cluster_id}
     """
-    count = duckdb.query(count_query).fetchone()[0] # type: ignore
+    count = duckdb.execute(count_query).fetchone()[0] # type: ignore
 
     if count == 0:
         logger.warning(f"No molecules found for cluster_id={cluster_id}")
@@ -226,7 +226,7 @@ def export_cluster(
             "Use .parquet, .csv, .smi, or .txt"
         )
 
-    duckdb.query(export_query)
+    duckdb.execute(export_query)
     logger.info(f"Exported {count} molecules to {output_path}")
 
     return count
@@ -319,7 +319,7 @@ def export_all_clusters(
     """
 
     logger.info("Starting partitioned export (streaming, memory-efficient)...")
-    duckdb.query(export_query)
+    duckdb.execute(export_query)
 
     # Get cluster statistics after export
     logger.info("Calculating cluster statistics...")
@@ -373,7 +373,7 @@ def get_cluster_stats(
         ORDER BY {quoted_column}
     """
 
-    return duckdb.query(query).df()
+    return duckdb.execute(query).df()
 
 
 def get_cluster_ids(
@@ -404,7 +404,7 @@ def get_cluster_ids(
         ORDER BY {_quote_identifier(cluster_id_column_name)}
     """
 
-    result = duckdb.query(query).fetchall()
+    result = duckdb.execute(query).fetchall()
     return [row[0] for row in result]
 
 
@@ -426,7 +426,7 @@ def get_total_molecules(
     glob_pattern = str(path / "*.parquet")
 
     query = f"SELECT COUNT(*) FROM '{glob_pattern}'"
-    return duckdb.query(query).fetchone()[0] # type: ignore
+    return duckdb.execute(query).fetchone()[0] # type: ignore
 
 
 def query_clusters_batch(
@@ -468,7 +468,7 @@ def query_clusters_batch(
         WHERE {quoted_cluster_column} IN ({ids_str})
     """
 
-    return duckdb.query(query).df()
+    return duckdb.execute(query).df()
 
 
 def sample_from_cluster(
@@ -502,7 +502,7 @@ def sample_from_cluster(
 
     # Use setseed() for reproducibility when random_state is provided
     if random_state is not None:
-        duckdb.query(f"SELECT setseed({random_state / 2**31})")
+        duckdb.execute(f"SELECT setseed({random_state / 2**31})")
 
     # Use ORDER BY RANDOM() for sampling, which is more portable
     query = f"""
@@ -513,4 +513,4 @@ def sample_from_cluster(
         LIMIT {n}
     """
 
-    return duckdb.query(query).df()
+    return duckdb.execute(query).df()

@@ -453,7 +453,7 @@ class TestIntegration:
         stats = export_all_clusters(sample_results_dir, output_dir)
 
         # Query from partitioned output using DuckDB directly
-        df = duckdb.query(f"""
+        df = duckdb.execute(f"""
             SELECT * FROM '{output_dir}/*/*.parquet'
             WHERE cluster_id = 0
         """).df()
