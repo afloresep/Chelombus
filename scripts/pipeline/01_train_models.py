@@ -468,7 +468,7 @@ def stage4_train_clusterer(
     clusterer = PQKMeans(
         encoder=encoder,
         k=config.n_clusters,
-        iteration=config.clusterer_iterations,
+        iterations=config.clusterer_iterations,
         verbose=verbose > 0
     )
 

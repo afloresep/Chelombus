@@ -47,8 +47,9 @@ def create_tmap(
 
     fps = fingerprints_from_smiles(smiles, fp_type=fingerprint, **fp_kwargs)
 
-    # Fit TMAP
-    model = TMAP(metric='jaccard', n_neighbors=k_neighbors).fit(fps)
+    # Fit TMAP, use euclidean for dense descriptors like MQN
+    metric = 'euclidean' if fingerprint == 'mqn' else 'jaccard'
+    model = TMAP(metric=metric, n_neighbors=k_neighbors).fit(fps)
 
     # Build visualization
     viz = model.to_tmapviz(include_edges=True)
@@ -104,7 +105,7 @@ def representative_tmap(
 
     fps = fingerprints_from_smiles(smiles, fp_type=fingerprint, **fp_kwargs)
 
-    # Fit TMAP — use euclidean for dense descriptors like MQN
+    # Fit TMAP, use euclidean for dense descriptors like MQN
     metric = 'euclidean' if fingerprint == 'mqn' else 'jaccard'
     model = TMAP(metric=metric, n_neighbors=k_neighbors).fit(fps)
 

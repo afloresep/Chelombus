@@ -111,7 +111,8 @@ class FingerprintCalculator:
         Args:
             smiles_list (list): A list of SMILES strings.
             fp (str): The fingerprint type to compute (e.g., 'morgan').
-            nprocesses (int): Number of processes for multithreaded fingerprint calculation.  Default to cpu cores
+            nprocesses (int): Number of worker processes. Defaults to all CPU cores.
+                Use 1 to compute in the current process (no multiprocessing).
             return_valid_idx (bool): If True, return ``(valid_idx, fingerprints)``
                 where ``valid_idx`` is an int64 array of the input positions that
                 parsed OK. If False (default), return only the fingerprints.
@@ -136,12 +137,12 @@ class FingerprintCalculator:
 
         if isinstance(smiles, str):
             smiles = [smiles]
-        try:
+        if nprocesses == 1:
+            # No worker processes: avoids pool startup cost and spawn issues
+            fingerprints = [part_func(s) for s in smiles]
+        else:
             with Pool(processes=nprocesses) as pool:
                 fingerprints = pool.map(part_func, smiles)
-        finally:
-            pool.close()
-            pool.join()
 
         if return_valid_idx:
             # Keep the input positions that produced a fingerprint, so the

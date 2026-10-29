@@ -253,7 +253,7 @@ def main():
             continue
 
         # Fit
-        clusterer = PQKMeans(encoder, k=k, iteration=args.iterations, verbose=False)
+        clusterer = PQKMeans(encoder, k=k, iterations=args.iterations, verbose=False)
         t0 = time.time()
         clusterer.fit(pq_codes)
         t_fit = time.time() - t0

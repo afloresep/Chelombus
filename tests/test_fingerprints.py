@@ -113,3 +113,18 @@ def test_fingerprint_with_data_parser(tmp_path):
     assert len(result) == 4 
     assert result[0].shape == (2, 1024)
     assert result[3].shape == (1, 1024)
+
+def test_fingerprint_calculator_serial_matches_pool():
+    """nprocesses=1 runs in-process and gives the same result as the pool."""
+    smiles = ['CCO', 'c1ccccc1O', 'not_a_smiles', 'CC(=O)Nc1ccc(O)cc1']
+    calculator = FingerprintCalculator()
+
+    idx_serial, fps_serial = calculator.FingerprintFromSmiles(
+        smiles, 'mqn', nprocesses=1, return_valid_idx=True)
+    idx_pool, fps_pool = calculator.FingerprintFromSmiles(
+        smiles, 'mqn', nprocesses=2, return_valid_idx=True)
+
+    np.testing.assert_array_equal(idx_serial, [0, 1, 3])
+    np.testing.assert_array_equal(idx_serial, idx_pool)
+    np.testing.assert_array_equal(fps_serial, fps_pool)
+    assert fps_serial.shape == (3, 42)

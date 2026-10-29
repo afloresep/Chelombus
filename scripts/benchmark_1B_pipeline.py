@@ -156,7 +156,7 @@ def main():
     # ── 3. Cluster training ──────────────────────────────────────────────
     print(f"\n{sep}\n  STEP 3: Cluster training ({N:,}, K={args.k:,}, {args.fit_iters} iters, tol=0)\n{sep}", flush=True)
 
-    clusterer = PQKMeans(encoder, k=args.k, iteration=args.fit_iters, tol=0, verbose=True)
+    clusterer = PQKMeans(encoder, k=args.k, iterations=args.fit_iters, tol=0, verbose=True)
     t_fit, _ = bench("GPU", lambda: clusterer.fit(pq_codes, device='gpu'))
     results["Cluster training"] = t_fit
 
