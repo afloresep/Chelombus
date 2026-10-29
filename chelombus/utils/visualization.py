@@ -26,7 +26,7 @@ def create_tmap(
     """Create a TMAP visualization from SMILES strings.
 
     Args:
-        smiles: List of SMILES strings to visualize.
+        smiles: List of SMILES strings to visualize. Unparseable SMILES are skipped.
         fingerprint: Fingerprint type ('morgan' or 'mqn').
         fingerprint_bits: Number of bits for Morgan fingerprint (default: 2048).
         fingerprint_radius: Radius for Morgan fingerprint (default: 2).
@@ -35,35 +35,8 @@ def create_tmap(
         tmap_name: Name for the output TMAP HTML file.
         k_neighbors: Number of neighbors for layout (default: 20).
     """
-    if properties is None:
-        properties = DEFAULT_PROPERTIES
-
-    _validate_properties(properties)
-
-    # Compute fingerprints via tmap2
-    fp_kwargs = {}
-    if fingerprint == 'morgan':
-        fp_kwargs = {'n_bits': fingerprint_bits, 'radius': fingerprint_radius}
-
-    fps = fingerprints_from_smiles(smiles, fp_type=fingerprint, **fp_kwargs)
-
-    # Fit TMAP, use euclidean for dense descriptors like MQN
-    metric = 'euclidean' if fingerprint == 'mqn' else 'jaccard'
-    model = TMAP(metric=metric, n_neighbors=k_neighbors).fit(fps)
-
-    # Build visualization
-    viz = model.to_tmapviz(include_edges=True)
-    viz.title = tmap_name
-    viz.background_color = "#FFFFFF"
-
-    # Add molecular properties as color layers
-    props = molecular_properties(smiles, properties=properties)
-    for prop_name, values in props.items():
-        viz.add_color_layout(prop_name, values, categorical=False, color='rainbow')
-
-    # Add SMILES for structure rendering in tooltips
-    viz.add_smiles(smiles)
-
+    viz, _ = _build_viz(smiles, fingerprint, fingerprint_bits, fingerprint_radius,
+                        properties, tmap_name, k_neighbors)
     viz.write_html(f"{tmap_name}.html")
 
 
@@ -93,6 +66,35 @@ def representative_tmap(
         tmap_name: Name for the output TMAP HTML file.
         k_neighbors: Number of neighbors for KNN graph (default: 21).
     """
+    viz, valid = _build_viz(smiles, fingerprint, fingerprint_bits, fingerprint_radius,
+                            properties, tmap_name, k_neighbors)
+
+    # Add cluster ID as categorical color channel
+    if cluster_ids is not None:
+        viz.add_color_layout(
+            'Cluster ID',
+            [str(cid) for cid, ok in zip(cluster_ids, valid) if ok],
+            categorical=True,
+            color='tab20',
+        )
+
+    viz.write_html(f"{tmap_name}.html")
+
+
+def _build_viz(
+    smiles: list[str],
+    fingerprint: str,
+    fingerprint_bits: int,
+    fingerprint_radius: int,
+    properties: list[str] | None,
+    tmap_name: str,
+    k_neighbors: int,
+):
+    """Fit a TMAP and return ``(viz, valid)`` with property layers and SMILES added.
+
+    SMILES that RDKit cannot parse are dropped, so every layer lines up with the
+    points. ``valid`` holds one flag per input SMILES, for aligning extra layers.
+    """
     if properties is None:
         properties = DEFAULT_PROPERTIES
 
@@ -103,7 +105,8 @@ def representative_tmap(
     if fingerprint == 'morgan':
         fp_kwargs = {'n_bits': fingerprint_bits, 'radius': fingerprint_radius}
 
-    fps = fingerprints_from_smiles(smiles, fp_type=fingerprint, **fp_kwargs)
+    fps, valid = fingerprints_from_smiles(smiles, fp_type=fingerprint, return_valid=True, **fp_kwargs)
+    smiles = [smi for smi, ok in zip(smiles, valid) if ok]
 
     # Fit TMAP, use euclidean for dense descriptors like MQN
     metric = 'euclidean' if fingerprint == 'mqn' else 'jaccard'
@@ -119,19 +122,10 @@ def representative_tmap(
     for prop_name, values in props.items():
         viz.add_color_layout(prop_name, values, categorical=False, color='rainbow')
 
-    # Add cluster ID as categorical color channel
-    if cluster_ids is not None:
-        viz.add_color_layout(
-            'Cluster ID',
-            [str(cid) for cid in cluster_ids],
-            categorical=True,
-            color='tab20',
-        )
-
     # Add SMILES for structure rendering in tooltips
     viz.add_smiles(smiles)
 
-    viz.write_html(f"{tmap_name}.html")
+    return viz, valid
 
 
 def _validate_properties(properties: list[str]) -> None:
@@ -154,11 +148,14 @@ Available properties: {', '.join(AVAILABLE_PROPERTIES)}
 Examples:
   chelombus-tmap --smiles molecules.smi
   chelombus-tmap --smiles molecules.smi --fingerprint mqn --properties mw,logp,qed
-  chelombus-tmap --smiles molecules.smi --cluster-file clusters.csv
+  chelombus-tmap --cluster-file clusters.csv
         """
     )
-    parser.add_argument('--smiles', type=str, required=True,
-                       help="Path to file containing SMILES (one per line)")
+    source = parser.add_mutually_exclusive_group(required=True)
+    source.add_argument('--smiles', type=str,
+                        help="Path to file containing SMILES (one per line)")
+    source.add_argument('--cluster-file', type=str,
+                        help="CSV/parquet file with 'smiles' and 'cluster_id' columns for representative TMAP")
     parser.add_argument('--fingerprint', type=str, default='morgan',
                        choices=['morgan', 'mqn'],
                        help="Fingerprint type (default: morgan)")
@@ -170,8 +167,6 @@ Examples:
                        help=f"Comma-separated properties (default: all). Available: {', '.join(AVAILABLE_PROPERTIES)}")
     parser.add_argument('--output', type=str, default='my_tmap',
                        help="Output TMAP name (default: my_tmap)")
-    parser.add_argument('--cluster-file', type=str, default=None,
-                       help="CSV/parquet file with 'smiles' and 'cluster_id' columns for representative TMAP")
     parser.add_argument('--representative', action='store_true',
                        help="Use representative_tmap layout (edge list based)")
 
@@ -204,7 +199,7 @@ Examples:
             tmap_name=args.output,
         )
     else:
-        with open(args.smiles, 'r') as file:
+        with open(args.smiles, 'r', encoding='utf-8') as file:
             smiles = [line.strip() for line in file.readlines() if line.strip()]
 
         if args.representative:
