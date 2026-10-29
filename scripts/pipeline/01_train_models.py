@@ -39,7 +39,6 @@ from __future__ import annotations
 
 import argparse
 import gc
-import glob
 import json
 import os
 import sys
@@ -534,8 +533,10 @@ def stage5_cluster_all_data(
             chunk_idx += 1
             continue
 
-        # Calculate fingerprints
-        fps = fp_calc.FingerprintFromSmiles(smiles_chunk, fp="mqn")
+        # Calculate fingerprints. valid_idx keeps SMILES and labels aligned
+        # when some SMILES fail to parse.
+        valid_idx, fps = fp_calc.FingerprintFromSmiles(smiles_chunk, fp="mqn",
+                                                       return_valid_idx=True)
 
         if len(fps) == 0:
             chunk_idx += 1
@@ -547,17 +548,10 @@ def stage5_cluster_all_data(
         # Predict clusters
         cluster_ids = clusterer.predict(pq_codes)
 
-        # Create output DataFrame
-        if len(fps) == len(smiles_chunk):
-            output_df = pd.DataFrame({
-                "smiles": smiles_chunk,
-                "cluster_id": cluster_ids,
-            })
-        else:
-            # Some SMILES failed - can't reliably associate
-            output_df = pd.DataFrame({
-                "cluster_id": cluster_ids,
-            })
+        output_df = pd.DataFrame({
+            "smiles": [smiles_chunk[i] for i in valid_idx],
+            "cluster_id": cluster_ids,
+        })
 
         # Save chunk
         output_file = os.path.join(results_dir, f"chunk_{chunk_idx:05d}.parquet")

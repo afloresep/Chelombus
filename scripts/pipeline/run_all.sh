@@ -25,22 +25,22 @@ PQ=/home/afloresep/miniforge3/envs/pqkmeans/bin/python   # compute / GPU
 TM=/home/afloresep/miniforge3/envs/tmap2/bin/python       # tmap2 viz
 
 # --- Where the code lives ----------------------------------------------------
-REPO=/mnt/10tb_hdd/work/Chelombus
+REPO=$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)   # this checkout
 P=$REPO/scripts/pipeline   # all pipeline scripts (01..06 + helpers) live here
 
 # --- Your data and where results go (EDIT THESE) -----------------------------
 SRC=/mnt/10tb_hdd/cleaned_enamine_10b/output_file_0.cxsmiles  # input file(s)
 ROOT=/mnt/10tb_hdd/enamine_1b                                  # all output here
 SMILES_COL=1     # 0-based column that holds the SMILES in $SRC
-ID_COL=0         # 0-based column that holds the molecule id (see note below)
+ID_COL=0         # 0-based column that holds the molecule id, or empty (see note below)
 K=50000          # number of clusters
 TRAIN_SAMPLE=100000000   # molecules used to TRAIN (you don't need all 1B)
 MAX_CLUSTERS=1000        # how many drill-down maps to build in this run
 #
 # NOTE on columns: if your file is just ONE SMILES per line with nothing else,
-# set SMILES_COL=0 and delete the "--id-col $ID_COL" text in STEP 2 below; the
-# molecules will then be auto-numbered (0,1,2,...). Set ID_COL only when your
-# file really has an id column you want to keep.
+# set SMILES_COL=0 and ID_COL= (empty); the molecules will then be
+# auto-numbered (0,1,2,...). Set ID_COL only when your file really has an id
+# column you want to keep.
 # ----------------------------------------------------------------------------
 
 SAMPLE=$ROOT/train_sample.smi
@@ -72,7 +72,7 @@ say "STEP 2: assigning all molecules to clusters (full pass, --resume)"
 "$PQ" "$P/02_assign_clusters.py" --input "$SRC" --output "$ROOT/labels" \
       --encoder "$ROOT/models/encoder.joblib" \
       --clusterer "$ROOT/models/clusterer.joblib" \
-      --smiles-col "$SMILES_COL" --id-col "$ID_COL" \
+      --smiles-col "$SMILES_COL" ${ID_COL:+--id-col "$ID_COL"} \
       --device gpu --resume || die "assign"
 
 # ── STEP 3: GROUP molecules by cluster (DuckDB) ──────────────────────────────
