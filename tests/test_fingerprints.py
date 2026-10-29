@@ -128,3 +128,28 @@ def test_fingerprint_calculator_serial_matches_pool():
     np.testing.assert_array_equal(idx_serial, idx_pool)
     np.testing.assert_array_equal(fps_serial, fps_pool)
     assert fps_serial.shape == (3, 42)
+
+
+def test_fingerprint_calculator_unguarded_script_errors_instead_of_hanging(tmp_path):
+    """A script without a __main__ guard under spawn (Windows default) must
+    fail fast with a helpful error, not respawn workers forever."""
+    import os
+    import subprocess
+    import sys
+    from pathlib import Path
+
+    script = tmp_path / "unguarded.py"
+    script.write_text(
+        "import multiprocessing as mp\n"
+        "mp.set_start_method('spawn', force=True)\n"
+        "from chelombus.utils.fingerprints import FingerprintCalculator\n"
+        "FingerprintCalculator().FingerprintFromSmiles(['CCO'] * 20, 'mqn', nprocesses=2)\n"
+    )
+    repo_root = str(Path(__file__).resolve().parents[1])
+    env = {**os.environ, "PYTHONPATH": repo_root + os.pathsep + os.environ.get("PYTHONPATH", "")}
+
+    result = subprocess.run([sys.executable, str(script)], cwd=tmp_path, env=env,
+                            capture_output=True, text=True, timeout=120)
+
+    assert result.returncode != 0
+    assert "__main__" in result.stderr and "guard" in result.stderr
