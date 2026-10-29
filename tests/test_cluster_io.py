@@ -420,6 +420,18 @@ class TestSampleFromCluster:
         assert df1["smiles"].tolist() == df2["smiles"].tolist()
         assert df1["smiles"].tolist() != df3["smiles"].tolist()
 
+    def test_sample_with_random_state_duplicate_rows(self, tmp_path):
+        """Duplicate rows are sampled independently, not grouped together."""
+        results_dir = tmp_path / "dup"
+        results_dir.mkdir()
+        pd.DataFrame({"smiles": ["A"] * 100 + ["B"] * 100, "cluster_id": 0}).to_parquet(
+            results_dir / "chunk_00000.parquet", index=False)
+
+        for seed in range(5):
+            df = sample_from_cluster(results_dir, cluster_id=0, n=20, random_state=seed)
+            assert list(df.columns) == ["smiles", "cluster_id"]
+            assert set(df["smiles"]) == {"A", "B"}
+
     def test_sample_empty_cluster(self, sample_results_dir):
         """Test sampling from non-existent cluster."""
         df = sample_from_cluster(sample_results_dir, cluster_id=999, n=5)

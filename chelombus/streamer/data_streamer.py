@@ -1,4 +1,5 @@
 import bz2
+import csv
 import glob
 import gzip
 import os
@@ -56,13 +57,14 @@ class DataStreamer:
             List: a chunk of SMILES strings, or of (id, smiles) tuples when ids
             are requested.
         """
-        # Sanity check
-        if glob.has_magic(input_path):
+        # Sanity check. A path that exists is taken literally, even if it
+        # contains glob characters like "batch[1]".
+        if os.path.exists(input_path):
+            input_paths = input_path
+        elif glob.has_magic(input_path):
             input_paths = sorted(glob.glob(input_path))
             if not input_paths:
                 raise FileNotFoundError(f"No files match {input_path}.")
-        elif os.path.exists(input_path):
-            input_paths = input_path
         else:
             raise FileNotFoundError(f"Data source {input_path} not found.")
 
@@ -101,12 +103,16 @@ class DataStreamer:
         `id_col`, or None when there is no id column. Blank / too-short lines
         (no column at `smiles_col`) are skipped."""
         with _open(file_path) as file:
-            for line in file:
-                parts = [part.strip() for part in line.split(sep)]
-                if smiles_col >= len(parts) or not parts[smiles_col]:
+            if sep is None:
+                rows = (line.split() for line in file)
+            else:
+                # csv handles quoted fields, e.g. "C,C" or "CCO"
+                rows = csv.reader(file, delimiter=sep, skipinitialspace=True)
+            for parts in rows:
+                if smiles_col >= len(parts) or not parts[smiles_col].strip():
                     continue
-                smiles = parts[smiles_col]
-                raw_id = parts[id_col] if (id_col is not None and id_col < len(parts)) else None
+                smiles = parts[smiles_col].strip()
+                raw_id = parts[id_col].strip() if (id_col is not None and id_col < len(parts)) else None
                 yield raw_id, smiles
 
     def _stream_sdf(self, file_path: str) -> Iterator[tuple]:
@@ -149,4 +155,4 @@ def _open(file_path: str, binary: bool = False):
     opener = _COMPRESSED.get(os.path.splitext(file_path)[1].lower(), open)
     if binary:
         return opener(file_path, "rb")
-    return opener(file_path, "rt", encoding="utf-8")
+    return opener(file_path, "rt", encoding="utf-8", newline="")

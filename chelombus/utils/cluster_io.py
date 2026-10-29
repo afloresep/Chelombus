@@ -510,19 +510,19 @@ def sample_from_cluster(
     path = _validate_results_dir(results_dir)
     source = _parquet_source(path)
 
-    # A seeded hash of each row gives the same order regardless of how DuckDB
-    # splits the scan across threads (setseed + RANDOM() does not)
+    where = f"{_quote_identifier(cluster_column)} = {cluster_id}"
     if random_state is None:
-        order_by = "RANDOM()"
+        query = f"SELECT * FROM {source} WHERE {where} ORDER BY RANDOM() LIMIT {n}"
     else:
-        order_by = f"hash(t, {int(random_state)})"
-
-    query = f"""
-        SELECT *
-        FROM {source} AS t
-        WHERE {_quote_identifier(cluster_column)} = {cluster_id}
-        ORDER BY {order_by}
-        LIMIT {n}
-    """
+        # Hash each row's position (file name, row number) with the seed. The
+        # order is the same however DuckDB splits the scan across threads
+        # (setseed + RANDOM() is not), and duplicate rows get distinct keys.
+        query = f"""
+            SELECT * EXCLUDE (filename, file_row_number)
+            FROM read_parquet({source}, filename = true, file_row_number = true)
+            WHERE {where}
+            ORDER BY hash(parse_filename(filename), file_row_number, {int(random_state)})
+            LIMIT {n}
+        """
 
     return duckdb.execute(query).df()

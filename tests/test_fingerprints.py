@@ -161,3 +161,15 @@ def test_fingerprint_calculator_warns_when_nothing_parses(caplog):
 
     assert len(fps) == 0
     assert "None of the 2 SMILES could be parsed" in caplog.text
+
+
+@pytest.mark.parametrize("container", [np.array, list, tuple])
+def test_fingerprint_calculator_accepts_array_like(container):
+    fps = FingerprintCalculator().FingerprintFromSmiles(container(["CCO", "CCN"]), 'mqn', nprocesses=1)
+    assert fps.shape == (2, 42)
+
+
+def test_fingerprint_calculator_accepts_pandas_series():
+    pd = pytest.importorskip("pandas")
+    fps = FingerprintCalculator().FingerprintFromSmiles(pd.Series(["CCO", "CCN"]), 'mqn', nprocesses=1)
+    assert fps.shape == (2, 42)

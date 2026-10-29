@@ -165,11 +165,11 @@ class FingerprintCalculator:
                 # Results are collected; don't block while idle workers exit
                 executor.shutdown(wait=False, cancel_futures=True)
 
-        if smiles and all(fp_ is None for fp_ in fingerprints):
+        if len(smiles) > 0 and all(fp_ is None for fp_ in fingerprints):
             # Usually a reading problem (wrong column or separator), not bad molecules
             logger.warning(
                 "None of the %d SMILES could be parsed (first: %r). If reading with "
-                "DataStreamer, check smiles_col and sep.", len(smiles), smiles[0]
+                "DataStreamer, check smiles_col and sep.", len(smiles), next(iter(smiles))
             )
 
         if return_valid_idx:

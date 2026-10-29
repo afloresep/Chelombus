@@ -117,3 +117,19 @@ def test_parse_input_csv_sep(tmp_path: Path):
     result = list(DataStreamer().parse_input(str(tmp_path / "mols.csv"), smiles_col=1,
                                              id_col=0, sep=","))
     assert result == [[("id1", "CCO"), ("id2", "CCN")]]
+
+
+def test_parse_input_csv_quoted_fields(tmp_path: Path):
+    (tmp_path / "mols.csv").write_text('"CCO",id1\n"C(C)O","a,b"\n')
+
+    result = list(DataStreamer().parse_input(str(tmp_path / "mols.csv"), id_col=1, sep=","))
+    assert result == [[("id1", "CCO"), ("a,b", "C(C)O")]]
+
+
+def test_parse_input_existing_path_with_glob_characters(tmp_path: Path):
+    folder = tmp_path / "batch[1]"
+    folder.mkdir()
+    (folder / "a.smi").write_text("CCO\n")
+
+    result = list(DataStreamer().parse_input(str(folder)))
+    assert result == [["CCO"]]
